@@ -1,0 +1,44 @@
+Source: sudo
+Section: admin
+Priority: optional
+Maintainer: Deepin Developer <deepin-dev@deepin.org>
+Uploaders: Deepin Packages Builder <packages@deepin.org>
+  Hanno Wagner <wagner@debian.org>,
+  Hilko Bengen <bengen@debian.org>,
+  Bastian Blank <waldi@debian.org>
+Build-Depends: debhelper-compat (= 13), libpam0g-dev, libldap2-dev, libsasl2-dev, libselinux1-dev [linux-any], autoconf, bison, flex, libaudit-dev [linux-any], zlib1g-dev
+Standards-Version: 4.6.0
+Rules-Requires-Root: binary-targets
+#Vcs-Git
+#Vcs-Browser
+Homepage: https://www.sudo.ws/
+
+Package: sudo
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpam-modules, lsb-base
+Pre-Depends: ${misc:Pre-Depends}
+Conflicts: sudo-ldap
+Replaces: sudo-ldap
+Description: Provide limited super user privileges to specific users
+ Sudo is a program designed to allow a sysadmin to give limited root
+ privileges to users and log root activity.  The basic philosophy is to give
+ as few privileges as possible but still allow people to get their work done.
+ .
+ This version is built with minimal shared library dependencies, use the
+ sudo-ldap package instead if you need LDAP support for sudoers.
+
+Package: sudo-ldap
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, libpam-modules, lsb-base
+Pre-Depends: ${misc:Pre-Depends}
+Conflicts: sudo
+Replaces: sudo
+Provides: sudo
+Description: Provide limited super user privileges (with LDAP support)
+ Sudo is a program designed to allow a sysadmin to give limited root
+ privileges to users and log root activity.  The basic philosophy is to give
+ as few privileges as possible but still allow people to get their work done.
+ .
+ This version is built with LDAP support, which allows an equivalent of the
+ sudoers database to be distributed via LDAP.  Authentication is still
+ performed via pam.

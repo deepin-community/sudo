@@ -1,0 +1,161 @@
+Description: Unset LANGUAGE when running tests, otherwise it may override LC_ALL
+Author: Todd C. Miller <Todd.Miller@sudo.ws>
+Bug: https://bugzilla.sudo.ws/show_bug.cgi?id=1025
+--- a/lib/eventlog/Makefile.in
++++ b/lib/eventlog/Makefile.in
+@@ -159,6 +159,7 @@ check: $(TEST_PROGS) check-fuzzer
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    umask 022; \
+--- a/lib/iolog/Makefile.in
++++ b/lib/iolog/Makefile.in
+@@ -209,6 +209,7 @@ run-fuzz_iolog_json: fuzz_iolog_json
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -235,6 +236,7 @@ run-fuzz_iolog_legacy: fuzz_iolog_legacy
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -261,6 +263,7 @@ run-fuzz_iolog_timing: fuzz_iolog_timing
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -311,6 +314,7 @@ check-fuzzer: $(FUZZ_PROGS)
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    echo "fuzz_iolog_legacy: verifying corpus"; \
+@@ -329,6 +333,7 @@ check: $(TEST_PROGS) check-fuzzer
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    rval=0; \
+--- a/lib/util/Makefile.in
++++ b/lib/util/Makefile.in
+@@ -342,6 +342,7 @@ run-fuzz_sudo_conf: fuzz_sudo_conf
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -404,6 +405,7 @@ check-fuzzer: $(FUZZ_PROGS)
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    echo "fuzz_sudo_conf: verifying corpus"; \
+@@ -419,6 +421,7 @@ check: $(TEST_PROGS) check-fuzzer
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    rval=0; \
+--- a/logsrvd/Makefile.in
++++ b/logsrvd/Makefile.in
+@@ -188,6 +188,7 @@ run-fuzz_logsrvd_conf: fuzz_logsrvd_conf
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -250,6 +251,7 @@ check-fuzzer: $(FUZZ_PROGS)
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    echo "fuzz_logsrvd_conf: verifying corpus"; \
+--- a/plugins/python/Makefile.in
++++ b/plugins/python/Makefile.in
+@@ -233,6 +233,7 @@ check: $(TEST_PROGS) check-fuzzer
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    LSAN_OPTIONS=suppressions=$(srcdir)/lsan_suppr.txt \
+--- a/plugins/sudoers/Makefile.in
++++ b/plugins/sudoers/Makefile.in
+@@ -435,6 +435,7 @@ run-fuzz_policy: fuzz_policy
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -461,6 +462,7 @@ run-fuzz_sudoers: fuzz_sudoers
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -487,6 +489,7 @@ run-fuzz_sudoers_ldif: fuzz_sudoers_ldif
+ 	    LC_ALL=C; export LC_ALL; \
+ 	fi; \
+ 	unset LANG || LANG=; \
++	unset LANGUAGE || LANGUAGE=; \
+ 	MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	umask 022; \
+@@ -636,6 +639,7 @@ check-fuzzer: $(FUZZ_PROGS)
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    echo "fuzz_sudoers: verifying corpus"; \
+@@ -654,6 +658,7 @@ check: $(TEST_PROGS) visudo testsudoers
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    umask 022; \
+--- a/src/Makefile.in
++++ b/src/Makefile.in
+@@ -331,6 +331,7 @@ check: $(TEST_PROGS) check-fuzzer
+ 		LC_ALL=C; export LC_ALL; \
+ 	    fi; \
+ 	    unset LANG || LANG=; \
++	    unset LANGUAGE || LANGUAGE=; \
+ 	    MALLOC_OPTIONS=S; export MALLOC_OPTIONS; \
+ 	    MALLOC_CONF="abort:true,junk:true"; export MALLOC_CONF; \
+ 	    ./check_net_ifs $(TEST_VERBOSE); \

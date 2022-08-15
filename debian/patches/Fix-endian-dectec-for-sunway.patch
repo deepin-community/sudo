@@ -1,0 +1,17 @@
+Description: Fix endian detect for sunway
+Author: Miao Changwei <miaochangwei@uniontech.com>
+
+---
+Last-Update: 2022-04-22
+
+--- sudo-1.9.5p2.orig/include/compat/endian.h
++++ sudo-1.9.5p2/include/compat/endian.h
+@@ -51,7 +51,7 @@
+        defined(__ns3200) || defined(sun386) || defined(vax) || \
+        defined(__vax) || defined(__x86__) || \
+        (defined(sun) && defined(__powerpc)) || \
+-       (!defined(__hpux) && defined(__ia64))
++       (!defined(__hpux) && defined(__ia64)) || defined(__sw_64__)
+ #  define BYTE_ORDER	LITTLE_ENDIAN
+ # elif defined(__68k__) || defined(apollo) || defined(BIT_ZERO_ON_LEFT) || \
+        defined(__convex__) || defined(_CRAY) || defined(DGUX) || \

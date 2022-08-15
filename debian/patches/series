@@ -1,0 +1,9 @@
+# 1004909-ftbfs-kfreebsd
+upstream-bz-1026
+upstream-bz-1025
+paths-in-samples.diff
+Whitelist-DPKG_COLORS-environment-variable.diff
+sudo-ldap-docs
+deepin-pam-security-verify.patch
+deepin-remove-log2cl.patch
+Fix-endian-dectec-for-sunway.patch
