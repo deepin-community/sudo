@@ -1,8 +1,4780 @@
+2023-03-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_13p3 for changeset 0bdd0b8469e3
+	[fc4e872d6d89] [tip] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.13p3
+	[0bdd0b8469e3] [SUDO_1_9_13p3] <1.9>
+
+2023-03-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/match.c, plugins/sudoers/parse.c,
+	plugins/sudoers/parse.h:
+	A user with "list" privs for root may not list all users. A user
+	with "sudo ALL" for root _is_ allowed to list any user.
+	[a3f7301ba4d3] <1.9>
+
+	* plugins/sudoers/policy.c:
+	sudoers_policy_list: do not set runas_pw to list_pw when listing
+	This change introduced in sudo 1.9.13 is not actually needed. The
+	"list" pseudo-command checks are performed via runas_matches_pw()
+	which does not use runas_pw. GitHub issue #248
+	[84effa5ffaa1] <1.9>
+
+	* plugins/sudoers/logging.c, plugins/sudoers/parse.c,
+	plugins/sudoers/sudoers.c:
+	Fix "sudo -l command args", broken in sudo 1.9.13. The value of
+	user_args should not contain the command to be run in "sudo -l
+	command args", only the arguments of the command being checked. This
+	restores the pre-1.9.13 behavior. GitHub issue #249
+	[3e1225e7bf33] <1.9>
+
+2023-03-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_nopty.c, src/exec_pty.c:
+	write_callback: only enable /dev/tty reader if the command is
+	running This fixes a hang when there is /dev/tty data in a buffer to
+	be flushed by the final call to del_io_events(). We do not want to
+	re-enable the reader when flushing the buffers as part of
+	pty_finish(). See PR #247 for analysis of the problem and how to
+	reproduce it.
+	[b7ea5b5e6a88] <1.9>
+
+2023-02-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/regress/testsudoers/test12.out.ok,
+	plugins/sudoers/regress/testsudoers/test12.sh:
+	Test non-fully qualified path name.
+	[0a9e6e83fe15] <1.9>
+
+	* plugins/sudoers/Makefile.in:
+	Fix removal of y.tab.[ch] when generating gram.[ch].
+	[f69c86ecae66] <1.9>
+
+	* MANIFEST, plugins/sudoers/regress/sudoers/test30.in,
+	plugins/sudoers/regress/sudoers/test30.json.ok,
+	plugins/sudoers/regress/sudoers/test30.ldif.ok,
+	plugins/sudoers/regress/sudoers/test30.ldif2sudo.ok,
+	plugins/sudoers/regress/sudoers/test30.out.ok,
+	plugins/sudoers/regress/sudoers/test30.sudo.ok,
+	plugins/sudoers/regress/sudoers/test30.toke.ok:
+	Add test for using "list" as user, runas and host.
+	[ae2c84c73371] <1.9>
+
+	* plugins/sudoers/gram.c, plugins/sudoers/gram.y,
+	plugins/sudoers/toke.c, plugins/sudoers/toke.l:
+	Move handling of the "list" pseudo-command from lexer to parser. The
+	special handling of "list" in the lexer meant it could not be used
+	as a user, group or host, which was unintentional. GitHub issue
+	#246.
+	[efb3a4dea1da] <1.9>
+
+2023-02-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_compat.h:
+	Make the check for HAVE_DECL_NSIG consistent with other decl checks.
+	[616c42c4adce] <1.9>
+
+2023-02-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_13p2 for changeset 2db7cee1cb77
+	[b0af73801130] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.13p2.
+	[2db7cee1cb77] [SUDO_1_9_13p2] <1.9>
+
+2023-02-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/lbuf.c:
+	Add missing include of errno.h.
+	[65ddd70d0c18] <1.9>
+
+	* lib/util/lbuf.c:
+	sudo_lbuf_expand: check for overflow when rounding to the nearest
+	power of 2. Problem deteced by oss-fuzz using the fuzz_sudoers
+	fuzzer.
+	[9357396fdaa0] <1.9>
+
+	* src/load_plugins.c:
+	Fix --enable-static-sudoers, broken in sudo 1.9.13.
+	sudo_qualify_plugin() should not try to fully-qualify the path to a
+	statically-compiled plugin. GitHub issue #245
+	[eca5f1f6555e] <1.9>
+
+2023-02-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* MANIFEST, plugins/sudoers/match_command.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/regress/testsudoers/test20.out.ok,
+	plugins/sudoers/regress/testsudoers/test20.sh,
+	plugins/sudoers/testsudoers.c, plugins/sudoers/visudo.c:
+	Fix potential double free for rules that include a CHROOT= option.
+	If a rule with a CHROOT= option matches the user, host and runas,
+	the user_cmnd variable could be freed twice.
+	[2c1477233f48] <1.9>
+
+2023-02-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_13p1 for changeset 49e64402924f
+	[97ae12488007] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Merge sudo 1.9.13p1 from tip.
+	[49e64402924f] [SUDO_1_9_13p1] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.13p1
+	[0a9817096e03]
+
+	* configure.ac:
+	Use m4_bmatch, m4_case does not support shell-style globbing.
+	[b7a743baf22e]
+
+	* configure, configure.ac:
+	Allow configure.ac to be processed by autoconf 2.69. AC_PROG_CC_STDC
+	is deprecated in autoconf 2.70 and above but it is necessary for
+	autoconf 2.69.
+	[324ba83acd63]
+
+	* configure.ac:
+	Only use AC_SYS_YEAR2038 if it is defined. Otherwise, use the method
+	from 1.9.12. GitHub issue #242
+	[16fcec5264cc]
+
+2023-02-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/mkpkg:
+	Sudo-specific executables moved to /usr/libexec/sudo starting in
+	Debian 12 (Bookworm) and Ubuntu 22.04 (Jammy Jellyfish). Previously,
+	they were stored in /usr/lib/sudo.
+	[a2aa15b72312]
+
+	* lib/eventlog/Makefile.in, lib/iolog/Makefile.in,
+	lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/python/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	Handle "locale -a" returning both C.UTF-8 and C.utf8. It is possible
+	to have mutiple matches from the output of "locale
+	-a". Just take the first one. Fixes GitHub issue #241.
+	[aeba71610439]
+
+	* lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/sudoers/Makefile.in, src/Makefile.in:
+	Add some missing files to the clean and distclean targets.
+	[5dedbe519db1]
+
+	* Merge pull request #240 from thesamesam/c23
+
+	sudo_fatal: Fix build where compiler recognises [[noreturn]]
+	attribut…
+	[22ae0d4402ac]
+
+2023-02-15  Sam James  <sam@gentoo.org>
+
+	* include/sudo_fatal.h:
+	sudo_fatal: Fix build where compiler recognises [[noreturn]]
+	attribute (C23)
+
+	If the compiler supports [[noreturn]] as a attribute as in C23, then
+	we define sudo_noreturn to be it. When that's the case, we must
+	place it at the beginning of the declaration, before any other
+	*extension* attributes (__attribute(...)).
+
+	A bug has been filed with GCC regarding rejecting/accepting mixed
+	attribute styles.
+
+	sudo_dso_public is always an extension attribute, while
+	sudo_noreturn only might be, so put it first.
+
+	This only shows up with GCC 13 so far (see the linked GCC bug for a
+	bit more exploration). Clang 16 does support the attribute but
+	doesn't let you use it for earlier language versions (need to pass
+	explicit -std=c2x, unlike with GCC here).
+
+	This is essentially a followup to
+	e707ffe58b3ccfe5c72f54c38eac1d7069d5021e.
+
+	Tested with GCC 13.0.1 20230212 (unreleased), GCC 12.2.1 20230211,
+	Clang 16.0.0_rc2, and Clang 15.0.7.
+
+	Bug: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=108796 Closes:
+	https://github.com/sudo-project/sudo/issues/239 Fixes:
+	e707ffe58b3ccfe5c72f54c38eac1d7069d5021e Fixes:
+	16ae61dcd7d3cd8bf6eb10a22fa742d4505da4e9
+	[806b5f3a6485]
+
+2023-02-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Add missing '[' to AS_IF() call. Fixes GitHub issue #238.
+	[48372d73d4bb]
+
+	* .hgtags:
+	Added tag SUDO_1_9_13 for changeset 813f6addf7cf
+	[8df54fde3b7a] <1.9>
+
+	* NEWS, config.h.in, configure, configure.ac, include/sudo_compat.h,
+	lib/util/hexchar.c, lib/util/regress/hexchar/hexchar_test.c,
+	plugins/sudoers/parse.c, plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/visudo.c:
+	Merge sudo 1.9.13 from tip.
+	[813f6addf7cf] [SUDO_1_9_13] <1.9>
+
+	* MANIFEST, plugins/sudoers/po/ka.mo:
+	Add compiled version of the sudoers Georgian translation.
+	[35007cc1c867]
+
+	* .gitignore, .hgignore:
+	Do not ignore .mo files. Otherwise we are likely to miss uncommitted
+	changes in them.
+	[d76a98baaf15]
+
+	* plugins/sudoers/po/ru.mo, plugins/sudoers/po/zh_CN.mo, po/zh_CN.mo:
+	Regenerate .mo files.
+	[a7a708d8bf34]
+
+2023-02-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/regress/fuzz/fuzz_sudoers.c:
+	No longer need to define sudoers_recovery here.
+	[11a365a8a218]
+
+	* NEWS:
+	Mention that a missing include file is no longer fatal.
+	[ba0bd554435e]
+
+	* plugins/sudoers/gram.c, plugins/sudoers/gram.h,
+	plugins/sudoers/gram.y, plugins/sudoers/policy.c:
+	Recover from missing include file unless error_recovery is disabled.
+	It is still treated as an error from a logging perspective, and mail
+	is still sent.
+	[e1cac68917cc]
+
+	* include/sudo_eventlog.h, lib/eventlog/eventlog.c,
+	plugins/sudoers/logging.c:
+	Add eventlog_mail() to send a log message via mail. This is used by
+	mail_parse_errors() to send multi-line messages. Previously, the
+	newlines would be escaped as control characters.
+	[97e516576212]
+
+	* lib/eventlog/eventlog.c:
+	send_mail: pass a single string instead of using varargs These days
+	we only ever pass in a const string.
+	[700e72ca42c0]
+
+2023-02-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Use AS_IF instead of if; then where possible.
+	[56946f4ac23a]
+
+2023-02-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Mention the fix for GitHub #237.
+	[70aafdaced09]
+
+	* plugins/sudoers/po/ja.mo, plugins/sudoers/po/ja.po,
+	plugins/sudoers/po/zh_TW.mo, plugins/sudoers/po/zh_TW.po, po/fur.mo,
+	po/fur.po, po/ja.mo, po/ja.po, po/zh_TW.mo, po/zh_TW.po:
+	Updated translations from translationproject.org
+	[c3be19c34043]
+
+	* src/exec_pty.c, src/tgetpass.c:
+	Display error in error message if we can't restore the terminal.
+	[aa2c60802b33]
+
+2023-02-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_pty.c, src/tgetpass.c:
+	Display an error message if unable to restore terminal settings.
+	[a1efb1dca169]
+
+	* Makefile.in, etc/sudo.pp, plugins/sudoers/Makefile.in:
+	Get rid of sudoersdir and just use sysconfdir. There is no need for
+	sudoersdir when it is always just set to sysconfdir.
+	[690b44edcec2]
+
+	* src/exec_pty.c:
+	pty_finish: only restore the terminal if sudo is the foreground
+	process
+	[357d90f11750]
+
+	* src/exec_pty.c:
+	Better background job detection when running a command in a pty. If
+	sudo is not the process group leader and stdin is not a tty, we may
+	be running as a background job via a shell script. Start the command
+	in the background to avoid changing the terminal mode from a
+	background process. GitHub issue #237
+	[6c74910ea869]
+
+	* src/exec_pty.c:
+	suspend_sudo_pty: stop the process group even if sudo is not the
+	leader. When sudo is not the process group leader, we still need to
+	stop sudo's process group and not just the sudo process itself. If
+	we only send the signal to sudo itself, the shell will not notice if
+	it is not in monitor mode. This can happen when sudo is run from a
+	shell script, for example. In this case we need to signal the shell
+	itself. If the process group leader is no longer present, we must
+	kill the command since there will be no one to resume us.
+	[44bb3267a55e]
+
+	* lib/util/term.c:
+	Add debug tracing to tcsetattr_nobg().
+	[b7a17174f1cf]
+
+2023-01-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/regress/fuzz/fuzz_policy.c:
+	Avoid compilation errors if getaddrinfo() or freeaddrinfo() are
+	macros. If this is the case we probably can't stub out the functions
+	but at least the fuzzer will compile.
+	[2482db79d3b9]
+
+	* src/net_ifs.c:
+	Initialize the integer result parameter passed to SIOCGIFANUM. It
+	appears that passing in a non-zero value causes the ioctl() to fail.
+	From Tim Rice.
+	[071633f9929c]
+
+	* logsrvd/logsrvd.c, logsrvd/logsrvd_relay.c,
+	plugins/sudoers/log_client.c:
+	Protect use of AF_INET6 with HAVE_STRUCT_IN6_ADDR guards. From Tim
+	Rice.
+	[661c26064544]
+
+	* config.h.in, configure, configure.ac, include/sudo_compat.h:
+	Add configure test for NSIG, _NSIG or __NSIG. This is better than
+	just defining NSIG in sudo_compat.h if it is not defined since
+	signal.h may not have been included.
+	[f1c94c5f825b]
+
+	* logsrvd/logsrvd_conf.c:
+	Avoid DNS lookups when fuzzing.
+	[384ffdead655]
+
+2023-01-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* etc/sudo-logsrvd.pp, etc/sudo-python.pp, etc/sudo.pp, scripts/mkpkg,
+	scripts/pp:
+	No longer need to treat Rocky or Alma Linux specially. We now treat
+	them the same as RHEL.
+	[190afa102ca6]
+
+2023-01-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #230 from trackers-lover/main
+
+	Return value does not match
+	[1dc4317beaf7]
+
+2023-01-29  bianguangze@uniontech.com  <bianguangze@uniontech.com>
+
+	* lib/util/sudo_conf.c:
+	Modify return value parameter
+	[eb1e78bb2f91]
+
+2023-01-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/build_pkgs:
+	Store conf hash in vm_servers instead of vmid. Add a shutdown
+	command fallback to the conf file.
+	[2f7eeb5c3f04]
+
+	* plugins/sudoers/po/cs.mo, plugins/sudoers/po/cs.po,
+	plugins/sudoers/po/de.mo, plugins/sudoers/po/de.po,
+	plugins/sudoers/po/eo.mo, plugins/sudoers/po/eo.po,
+	plugins/sudoers/po/fr.mo, plugins/sudoers/po/fr.po,
+	plugins/sudoers/po/hr.mo, plugins/sudoers/po/hr.po,
+	plugins/sudoers/po/ko.mo, plugins/sudoers/po/ko.po,
+	plugins/sudoers/po/pl.mo, plugins/sudoers/po/pl.po,
+	plugins/sudoers/po/ro.mo, plugins/sudoers/po/ro.po,
+	plugins/sudoers/po/ru.po, plugins/sudoers/po/sv.mo,
+	plugins/sudoers/po/sv.po, plugins/sudoers/po/uk.mo,
+	plugins/sudoers/po/uk.po, plugins/sudoers/po/zh_CN.po,
+	plugins/sudoers/po/zh_TW.po, po/cs.mo, po/cs.po, po/de.mo, po/de.po,
+	po/eo.mo, po/eo.po, po/fr.mo, po/fr.po, po/hr.mo, po/hr.po,
+	po/ko.mo, po/ko.po, po/pl.mo, po/pl.po, po/ro.mo, po/ro.po,
+	po/sv.mo, po/sv.po, po/uk.mo, po/uk.po, po/zh_CN.po, po/zh_TW.po:
+	Updated translations from translationproject.org
+	[fa9569203e16]
+
+	* configure, m4/hardening.m4:
+	Fix a typo.
+	[ebf4c16e0079]
+
+	* config.h.in, configure, scripts/config.guess, scripts/config.sub:
+	Regen with latest autoconf git.
+	[9a0bbbb682fc]
+
+	* etc/sudo-logsrvd.pp, etc/sudo-python.pp, etc/sudo.pp, scripts/mkpkg,
+	scripts/pp:
+	Recognize Alma Linux and Rocky Linux (Open Source RHEL clones)
+	[b1dbb7b75824]
+
+	* NEWS:
+	Mention the recent intercept/log_subcmds fix.
+	[cbd60701de52]
+
+	* scripts/mkpkg:
+	Fix determination of the number of CPU cores on Linux.
+	[6ac6a9b074bf]
+
+2023-01-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* MANIFEST, plugins/sudoers/po/ka.po:
+	New Georgian translation from translationproject.org
+	[17681b870666]
+
+	* Merge pull request #235 from kernelmethod/apparmor_dependencies
+
+	Replace the Debian libselinux1 dependency with libapparmor1
+	[ca29638c5c34]
+
+2023-01-26  kernelmethod  <17100608+kernelmethod@users.noreply.github.com>
+
+	* etc/sudo.pp:
+	Replace the Debian libselinux1 dependency with libapparmor1
+
+	Debian >= 10 uses AppArmor by default instead of SELinux, so
+	SELinux-related sudo features are typically going to be unusable in
+	Debian installs. This changes the dependency on libselinux1 to be a
+	dependency on libapparmor1 for .deb packages built with `make
+	package`.
+	[5779ce23a161]
+
+2023-01-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	get_execve_info: defer setting pathname until argbuf is finalized If
+	we reallocate the buffer (via growbuf()) in ptrace_read_vec(), the
+	address of argbuf may change. If so, the value stored in pathname
+	will no longer be valid. GitHub issue #194.
+	[f75aa1eb5d95]
+
+	* src/exec_intercept.c, src/exec_ptrace.c:
+	Correct error message when command doesn't exist in intercept mode.
+	Previously, we would always use EACCES, even when ENOENT was
+	appropriate. This also affected log_subcmds.
+	[5bc0ecd5d4e6]
+
+2023-01-24  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/po/sudoers.pot, po/sudo.pot:
+	Update .pot files for 1.9.13
+	[c6a247e05a91]
+
+2023-01-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Update for 1.9.13.
+	[c9c5b6af5ea5]
+
+	* src/exec_ptrace.h:
+	Include elf.h, not linux/elf.h but define NT_ARM_SYSTEM_CALL if
+	missing. Older kernel headers are missing the definition of EM_ARM
+	in linux/elf.h. GitHub issue #232
+	[8bed5e7f8857]
+
+	* lib/util/regress/regex/regex_test.c:
+	Add tests for escaped digits.
+	[7e5b7e5e2409]
+
+	* lib/util/regex.c:
+	check_pattern: handle escaped digits since GNU libc accepts them.
+	[a20d5a047963]
+
+2023-01-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_eventlog.h, lib/eventlog/eventlog.c,
+	plugins/sudoers/sudoreplay.c:
+	Add eventlog_store_sudo() and use it in sudoreplay. This replaces
+	the custom log formatting used by "sudoreplay -l".
+	[26dd2367fbdd]
+
+2023-01-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/build_pkgs, scripts/mkpkg:
+	Add --build-only flag to skip building packages.
+	[46c0213b2668]
+
+2023-01-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/mkpkg, scripts/pp:
+	Suport building packages on DragonFly BSD.
+	[65920923add2]
+
+	* configure, configure.ac, m4/visibility.m4:
+	Try to link a simple shared object with -Wl,--no-undefined. This
+	only works for gcc-style compilers, which should not be a problem.
+	The source uses environ (FreeBSD) and errno (OpenBSD).
+	[1c2d9f90bc6d]
+
+	* scripts/build_pkgs:
+	Pass the name to the config.cache file to the build script. If
+	--cache-file is not specified, no config.cache file will be used.
+	Add an "omit_artifacts" setting for platforms where we don't publish
+	artifacts.
+	[c87221f36bf4]
+
+2023-01-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/regex.c:
+	check_pattern: accept a backslash before the numeric bound like
+	glibc. This helps avoid out-of-memory conditions when fuzzing on
+	Linux.
+	[07f14dba22ed]
+
+	* configure, configure.ac:
+	Don't use -Wl,--no-undefined with the sanitizers/fuzzers. It breaks
+	linking when using -fsanitize with clang at least.
+	[a6331135bd73]
+
+	* docs/SECURITY.md:
+	Add a link to the sudo security advisories archive.
+	[7137d1d214e5]
+
+	* config.h.in, configure, configure.ac:
+	Eliminate usage of obsolete 2-argument AC_CHECK_TYPE macro.
+	[96b37c574fc2]
+
+	* config.h.in, configure, configure.ac, plugins/sudoers/starttime.c,
+	src/regress/ttyname/check_ttyname.c, src/ttyname.c:
+	Add support for the struct kinfo_proc on Dragonfly BSD.
+	[4c1a7d223d66]
+
+	* configure, configure.ac:
+	Need to link sudo and sudoers with -lutil on Dragonfly BSD. It is
+	safer to just search for setusercontext() in libc and libutil
+	instead of matching on the operating system.
+	[b91a288c9968]
+
+	* configure, configure.ac:
+	Elminate the $OS variable, we can just use $host_os instead.
+	[0293bf9d4dd4]
+
+	* plugins/sudoers/editor.c:
+	Restore the line that set errno to ENOENT when find_path() fails.
+	This was inadvertently removed when the "goto bad" was added.
+	[b957909a1a75]
+
+	* configure, configure.ac, m4/ldap.m4:
+	Add -Wl,--no-undefined to LDFLAGS if it is supported. This will find
+	missing symbols at build-time instead of run-time. Don't use it on
+	FreeBSD where environ is filled in by the dynamic loader. We also
+	need to pull in -llber with -lldap where possible (instead of
+	relying on DT_NEEDED) to avoid undefined symbol errors when building
+	with LDAP support.
+	[c88bd9fd05c9]
+
+	* plugins/sample/README:
+	The sample plugin is now built by default to avoid bit rot. GitHub
+	issue #234.
+	[aac2a29136e1]
+
+	* plugins/sample/sample_plugin.c:
+	The change from sudo_printf -> sudo_plugin_printf was incomplete.
+	Fixes GitHub issue #234.
+	[4f8333e3f7b8]
+
+2023-01-18  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, m4/pie.m4:
+	Solaris: use lt_prog_compiler_pic instead of assuming -KPIC
+	[36b94699ad63]
+
+	* configure, m4/hardening.m4, m4/pie.m4:
+	Solaris: the aslr, nxheap and nxstack link options are only for
+	executables. Move them back to PIE_LDFLAGS, which is only used when
+	linking a binary.
+	[970d533cd9b2]
+
+	* configure, m4/hardening.m4, m4/pie.m4:
+	Solaris: move aslr linker option to hardening and try to build real
+	PIEs These flags are specific to the Solaris linker.
+	[c5439fec5cb3]
+
+	* configure, m4/hardening.m4, m4/pie.m4:
+	Enable non-executable heap and stack options for Solaris ld.
+	[5be638b9bd79]
+
+	* configure, configure.ac, m4/hardening.m4:
+	Limit some of the hardening tests to compilers that define __GNUC__.
+	This should avoid false positives on other compilers.
+	[1b3b36a2ff2b]
+
+	* plugins/python/regress/testdata/check_multiple_approval_plugin_and_a
+	rguments.stdout:
+	Update expected plugin version.
+	[19b2963008a2]
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in,
+	include/sudo_plugin.h, plugins/sudoers/policy.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h, src/sudo.c,
+	src/sudo.h, src/sudo_edit.c:
+	Pass back the number of files to edit when using sudoedit. The sudo
+	front-end can use this to determine where the list of files to edit
+	begins.
+	[c9c1e6e81438]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in, docs/sudoreplay.man.in,
+	docs/sudoreplay.mdoc.in, include/sudo_lbuf.h,
+	lib/eventlog/eventlog.c, lib/iolog/iolog_json.c, lib/util/lbuf.c,
+	lib/util/util.exp.in, plugins/sudoers/sudoreplay.c:
+	Escape control characters in log messages and "sudoreplay -l"
+	output. The log message contains user-controlled strings that could
+	include things like terminal control characters. Space characters in
+	the command path are now also escaped.
+
+	Command line arguments that contain spaces are surrounded with
+	single quotes and any literal single quote or backslash characters
+	are escaped with a backslash. This makes it possible to distinguish
+	multiple command line arguments from a single argument that contains
+	spaces.
+
+	Issue found by Matthieu Barjole and Victor Cutillas of Synacktiv
+	(https://synacktiv.com).
+	[1cd37144190c]
+
+	* NEWS:
+	Merge in sudo 1.9.12p2 changes.
+	[d5a2cd780f27]
+
+	* .hgtags:
+	Added tag SUDO_1_9_12p2 for changeset 05149e3ee7db
+	[8763a9e70ddd] <1.9>
+
+2023-01-17  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Add back the linker check for -fstack-clash-protection. This is
+	expected to fix GitHub issue #231.
+	[40bda374ae08] <1.9>
+
+	* configure, m4/hardening.m4:
+	Add back the linker check for -fstack-clash-protection. This is
+	expected to fix GitHub issue #231.
+	[c08c0a7c8613]
+
+2023-01-17  trackers-love  <bianguangze@uniontech.com>
+
+	* lib/util/sudo_conf.c:
+	Return value does not match
+	[2c7c350c3d97]
+
+2023-01-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in,
+	docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in,
+	docs/sudo_logsrvd.conf.man.in, docs/sudo_logsrvd.conf.mdoc.in,
+	docs/sudoers.ldap.man.in, docs/sudoers.ldap.mdoc.in,
+	docs/sudoers.man.in, docs/sudoers.mdoc.in, docs/visudo.man.in,
+	docs/visudo.mdoc.in:
+	Stop using 8n width in tagged lists. Use either 4n, when the body is
+	expected to wrap or the width of the longest tag when no wrapping is
+	expected.
+	[2b1bc5d31250]
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in, docs/sudo.man.in,
+	docs/sudo.mdoc.in, docs/sudo_logsrvd.man.in,
+	docs/sudo_logsrvd.mdoc.in, docs/sudo_sendlog.man.in,
+	docs/sudo_sendlog.mdoc.in, docs/sudoreplay.man.in,
+	docs/sudoreplay.mdoc.in, docs/visudo.man.in, docs/visudo.mdoc.in:
+	Use -width Ds for the options list, not -width Fl.
+	[598dbf3d2fea]
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in, docs/sudo_logsrvd.conf.man.in,
+	docs/sudo_logsrvd.conf.mdoc.in, docs/sudo_plugin_python.man.in,
+	docs/sudo_plugin_python.mdoc.in:
+	Reduce the offset of bullet lists to 1n.
+	[893b6fd25564]
+
+	* INSTALL.md:
+	Shorten --with-passprompt and --with-mailsubject arguments to a
+	single word. The script that generates the web version of this file
+	doesn't expect options to include whitespace.
+	[063dc2c168aa]
+
+2023-01-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* INSTALL.md:
+	Shorten --with-badpass-message argument to a single word. The
+	fix_install script can't deal with whitespace in options.
+	[17761c19a4b8]
+
+	* LICENSE.md:
+	Make numbered lists more markdown-friendly. Also add line breaks
+	when there are multiple authors.
+	[d22146e06e27]
+
+	* INSTALL.md:
+	Make lists of directories more markdown-friendly.
+	[b3295e422b33]
+
+2023-01-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/iolog/regress/iolog_mkpath/check_iolog_mkpath.c:
+	Check for errors when removing the temp directory. If we cannot
+	remove the directory tree that may indicate a file or directory mode
+	problem.
+	[4a162644b61f]
+
+	* lib/iolog/iolog_mkdtemp.c:
+	iolog_mkdtemp: fix pasto in last commit Set mode to iolog_dirmode,
+	not iolog_filemode
+	[9926f1c92729] <1.9>
+
+	* lib/iolog/iolog_mkdtemp.c:
+	iolog_mkdtemp: fix pasto in last commit Set mode to iolog_dirmode,
+	not iolog_filemode
+	[713773e23472]
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.2p2
+	[05149e3ee7db] [SUDO_1_9_12p2] <1.9>
+
+	* plugins/sudoers/editor.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/visudo.c:
+	sudoedit: do not permit editor arguments to include "--"
+	(CVE-2023-22809) We use "--" to separate the editor and arguments
+	from the files to edit. If the editor arguments include "--", sudo
+	can be tricked into allowing the user to edit a file not permitted
+	by the security policy. Thanks to Matthieu Barjole and Victor
+	Cutillas of Synacktiv (https://synacktiv.com) for finding this bug.
+	[eb7f573a4a92] <1.9>
+
+	* plugins/sudoers/editor.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/visudo.c:
+	sudoedit: do not permit editor arguments to include "--"
+	(CVE-2023-22809) We use "--" to separate the editor and arguments
+	from the files to edit. If the editor arguments include "--", sudo
+	can be tricked into allowing the user to edit a file not permitted
+	by the security policy. Thanks to Matthieu Barjole and Victor
+	Cutillas of Synacktiv (https://synacktiv.com) for finding this bug.
+	[2ca90805f471]
+
+2023-01-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/sha2.c:
+	In SHA256Pad and SHA512Pad use 511 and 1023 respectively for bitwise
+	AND. Previously we were using 504 and 1016 which still produces the
+	correct result since padding is done in 8-bit bytes. However, using
+	size-1 for the bitwise AND makes the intent clearer and likely would
+	have prevented the previous bug in SHA512Pad. From Matthieu Barjole
+	and Victor Cutillas of Synacktiv (https://synacktiv.com)
+	[4b6a50800ecd]
+
+	* plugins/sudoers/env.c:
+	env_file_next_local: change the order of the val_len check. It makes
+	more sense to verify that val_len > 1 before using it. This is not a
+	problem in practice because val[val_len - 1] is guaranteed not to
+	underflow but it can confuse reviewers and static analyzers.
+	[9d6bed4e3fd0]
+
+	* plugins/sudoers/env.c:
+	Fix typo in check for environment variables that start with '='.
+	[6dc466c8bf82]
+
+	* lib/util/lbuf.c:
+	sudo_lbuf_print: no longer need to check for lbuf->len > 0. Now that
+	lbuf length is unsigned the earlier check for len == 0 is
+	sufficient.
+	[bdfc863f5b5c]
+
+	* lib/util/lbuf.c:
+	Increase minimum allocation size from 256 to 1024 bytes.
+	[0f49c8728151]
+
+	* plugins/sudoers/sudoreplay.c:
+	Fix IS_IDLOG macro, it was testing the wrong byte for the NUL. This
+	causes the macro to evaluate to false even for valid TSIDs.
+	[77686e4508d3]
+
+2023-01-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/toke.c, plugins/sudoers/toke.l:
+	sudoers_trace_print: this is a no-op if not debugging
+	[df34de2e60f4]
+
+	* lib/util/lbuf.c:
+	sudo_lbuf_expand: don't allocate less than 256 bytes at a time.
+	[a747682156e6]
+
+2023-01-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/lbuf.c:
+	sudo_lbuf_expand: round nearest power of two instead of multiple of
+	256.
+	[840855b501de]
+
+	* LICENSE.md:
+	Update copyright year.
+	[5ff97b5e6bcd]
+
+	* include/sudo_lbuf.h, lib/util/lbuf.c:
+	sudo_lbuf_expand: check for possible integer overflow The numeric
+	fields in struct sudo_lbuf are now unsigned so that wraparound is
+	defined, this make the overflow checks simpler. Problem deteced by
+	oss-fuzz using the fuzz_sudoers fuzzer.
+	[6dc670d15276]
+
+	* MANIFEST, lib/iolog/iolog_json.c,
+	lib/iolog/regress/iolog_json/test3.in,
+	lib/iolog/regress/iolog_json/test3.out.ok:
+	Decode \u00XX in a JSON string now that we escape control chars. We
+	don't write Unicode to the log.json file, only 8-bit ASCII.
+	[83dcacb35309]
+
+	* MANIFEST, include/sudo_util.h, lib/util/Makefile.in,
+	lib/util/hexchar.c, lib/util/regress/hexchar/hexchar_test.c,
+	lib/util/util.exp.in, plugins/sudoers/Makefile.in,
+	plugins/sudoers/hexchar.c, plugins/sudoers/match_digest.c,
+	plugins/sudoers/parse.h,
+	plugins/sudoers/regress/parser/check_hexchar.c,
+	plugins/sudoers/toke_util.c:
+	Move hexchar() from the sudoers plugin to lib/util.
+	[4a6c57c1b66a]
+
+	* lib/util/mkdir_parents.c:
+	sudo_open_parent_dir: adjust loop terminating condition Checking for
+	ep < pathend should be a bit clearer than ep != '\0' and has the
+	advantage of working when pathend doesn't point to a NUL byte. No
+	intended change in behavior.
+	[cee4e0c71070]
+
+	* lib/iolog/iolog_mkdtemp.c:
+	iolog_mkdtemp: fix failure when the specified path contains
+	subdirectories. This fixes a bug introduced in sudo 1.9.12.
+	[ac86f3b0d94b] <1.9>
+
+	* lib/iolog/iolog_mkdtemp.c:
+	iolog_mkdtemp: fix failure when the specified path contains
+	subdirectories. This fixes a bug introduced in sudo 1.9.12.
+	[3a1d5b01b446]
+
+	* lib/iolog/regress/iolog_mkpath/check_iolog_mkpath.c:
+	check_iolog_mkpath: fix exit value
+	[9ac13d6657f6]
+
+2023-01-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #227 from sohomdatta1/integer_underflow
+
+	Prevent integer underflow due to environment variable
+	[c6c716352077]
+
+2023-01-02  Sohom  <sohomdatta1+git@gmail.com>
+
+	* plugins/sudoers/env.c:
+	Prevent integer underflow due to environment variable
+
+	Gaurd against replacing quotes when the environment variable val_len
+	is 1.
+	[1b926824dcf8]
+
+2023-01-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/regex.c:
+	glibc allows the ',' in {low,high} to be escaped with a backslash.
+	Adjust bound parsing to match this.
+	[b2bbac2bab6a]
+
+2022-12-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Fix logic goof in 05781ba6f1f3, disable replacements when fuzzing.
+	Not the other way around.
+	[abcf2deb9d0e]
+
+2022-12-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac, docs/sudo_plugin_python.man.in,
+	docs/sudo_plugin_python.mdoc.in, docs/sudoers.man.in,
+	docs/sudoers.mdoc.in:
+	Substitute python plugin file name in sudo_plugin_python
+	documentation. Also use prefix for group plugin fallback path
+	section in sudoers manual.
+	[e245808fbe74]
+
+	* lib/iolog/Makefile.in,
+	lib/iolog/regress/fuzz/fuzz_iolog_legacy.dict,
+	lib/iolog/regress/fuzz/fuzz_iolog_timing.dict:
+	Use correct dictionary file format. Also use the new dictionaries in
+	the Makefile fuzz target.
+	[c39e699cb9b6]
+
+	* MANIFEST, lib/iolog/regress/corpus/seed/log_legacy/less.log,
+	lib/iolog/regress/corpus/seed/log_legacy/smtpctl.log,
+	lib/iolog/regress/corpus/seed/log_legacy/vi.log,
+	lib/iolog/regress/corpus/seed/timing/timing.5,
+	lib/iolog/regress/corpus/seed/timing/timing.6,
+	lib/iolog/regress/corpus/seed/timing/timing.7,
+	lib/iolog/regress/corpus/seed/timing/timing.8,
+	lib/iolog/regress/corpus/seed/timing/timing.9:
+	Add some addition entries for the I/O log fuzzer seed corpus.
+	[51d4bf5f014c]
+
+	* MANIFEST, lib/iolog/regress/fuzz/fuzz_iolog_legacy.dict,
+	lib/iolog/regress/fuzz/fuzz_iolog_timing.dict:
+	Add dictionaries for fuzz_iolog_legacy and fuzz_iolog_timing.
+	[84d1e53ea8eb]
+
+	* include/sudo_fatal.h:
+	Don't send warn/fatal output to the debug file when fuzzing.
+	[968fedf79f23]
+
+	* lib/util/getentropy.c:
+	Back out the genentropy.c portion of c648cfe9ff0f We don't need to
+	special-case FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION now that we
+	use the glibc arc4random() where available.
+	[7d69e44e3e9b]
+
+2022-12-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/iolog/regress/fuzz/fuzz_iolog_json.c,
+	lib/iolog/regress/fuzz/fuzz_iolog_legacy.c,
+	lib/iolog/regress/fuzz/fuzz_iolog_timing.c,
+	lib/util/regress/fuzz/fuzz_sudo_conf.c,
+	logsrvd/regress/fuzz/fuzz_logsrvd_conf.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers_ldif.c:
+	Use initprogname(), not setprogname() in the fuzzers. This results
+	in better coverage for progname.c.
+	[dede53f4b0db]
+
+	* lib/util/regress/sudo_conf/conf_test.c,
+	lib/util/regress/sudo_conf/test1.out.ok,
+	lib/util/regress/sudo_conf/test2.out.ok,
+	lib/util/regress/sudo_conf/test3.out.ok,
+	lib/util/regress/sudo_conf/test4.out.ok,
+	lib/util/regress/sudo_conf/test5.out.ok,
+	lib/util/regress/sudo_conf/test6.out.ok,
+	lib/util/regress/sudo_conf/test7.out.ok:
+	Add probe_interfaces and intercept_path.
+	[f00ecf67a5e1]
+
+	* lib/util/regress/fuzz/fuzz_sudo_conf.c:
+	Exercise getter functions.
+	[3208a9508724]
+
+	* configure, configure.ac:
+	Avoid using our function replacements when fuzzing (where possible).
+	We don't want to fuzz the function replacements themselves as this
+	can skew the coverage reports.
+	[05781ba6f1f3]
+
+	* plugins/python/regress/check_python_examples.c:
+	Disable sudo_debug tests when fuzzing. The debug code is disable
+	when fuzzing is enabled to avoid coverage issues.
+	[2c90549a0918]
+
+	* lib/util/fatal.c, lib/util/getentropy.c, lib/util/sudo_conf.c:
+	Avoid compiling some code paths that are unreachable when fuzzing.
+	[c648cfe9ff0f]
+
+	* plugins/sudoers/regress/serialize_list/check_serialize_list.c:
+	Plug memory leak.
+	[6189ff1db193]
+
+2022-12-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/regress/fuzz/fuzz_policy.dict:
+	Update fuzz_policy keywords to match current policy settings.
+	[0db960f83cf1]
+
+	* plugins/sudoers/regress/fuzz/fuzz_sudoers.dict:
+	Add example users and groups to the dictionary.
+	[6fd8ad758aed]
+
+	* plugins/sudoers/env.c, plugins/sudoers/sudoers.c, src/parse_args.c:
+	parse_args: an environment variable may not start with '='. Also
+	check VAR=val format in validate_env_vars() and add an error message
+	if insert_env_vars() fails.
+	[b9b9acae1671]
+
+	* plugins/sudoers/env.c:
+	rebuild_env: avoid a potential NULL dereference in fuzz_policy
+	[90f5d579dd69]
+
+	* plugins/sudoers/sudoers.c:
+	sudoers_policy_main: plug memory leak of iolog_path on error.
+	[99cbe3d513e6]
+
+	* plugins/sudoers/env.c:
+	rebuild_env: avoid a potential NULL dereference in fuzz_policy
+	[de05b4f00f35]
+
+	* plugins/sudoers/regress/fuzz/fuzz_policy.c:
+	The contents of the env_add array should not include the leading
+	"env=" prefix. The previous fix for this was incomplete.
+	[849fee26133a]
+
+	* plugins/sudoers/env.c:
+	validate_env_vars: more efficient errbuf handling Also avoid
+	appending to errbuf if it is already full.
+	[1ffd174fa0ea]
+
+2022-12-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in:
+	Document that -k does not interfere with sudo on other terminals.
+	This should help clarify the difference between "sudo -k" and "sudo
+	-K".
+	[589d750faf30]
+
+	* lib/util/regex.c, lib/util/regress/regex/regex_test.c:
+	Check for bound values larger than 255 and reject them. This is to
+	prevent the fuzzers from running out of memory.
+	[f172a6d64a34]
+
+	* scripts/pp:
+	Use the POSIX shell "command -v" instead of "which" to find
+	programs. Fix false detection of init.d/service status.
+	[aee53eddfc18]
+
+	* etc/sudo.pp:
+	Fix example dir mode on RedHat/Fedora.
+	[f5fd86f35bc5]
+
+	* etc/sudo.pp:
+	Use sed instead of ed to modify the packaged sudoers file. Some
+	Linux distros do not include /bin/ed by default.
+	[217ef1afaacb]
+
+2022-12-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in:
+	Use @intercept_file@ and @noexec_file@ like the example file.
+	[726e060da20e]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	There is a @pam_login_service@ substitution but no @pam_service@.
+	Just use sudo instead of @pam_service@.
+	[b16f28ccc847]
+
+	* examples/sudo.conf.in:
+	Use @sudoers_plugin@ instead of @sudoers_module@.
+	[4c92b9ef93b5]
+
+	* docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in, docs/sudoers.man.in,
+	docs/sudoers.mdoc.in, docs/visudo.man.in, docs/visudo.mdoc.in:
+	Use @sudoers_plugin@ instead of @sudoers_module@.
+	[3c50a97c1bbd]
+
+	* INSTALL.md, NEWS, config.h.in, configure, configure.ac,
+	docs/UPGRADE.md, scripts/config.guess, scripts/config.sub:
+	sudo 1.9.13 Document the changes to AIX plugins in docs/UPGRADE.md
+	and regenerate configure using the latest autoconf from git.
+	[b897ca965a0f]
+
+	* scripts/build_pkgs:
+	Remove anything after whitespace in MANIFEST when building tarball.
+	This is consistent with how sudo's Makefile builds the tarball.
+	[db48ecf91964]
+
+	* MANIFEST:
+	Zap trailing whitespace.
+	[7be2d953e0ca]
+
+	* configure, configure.ac, docs/sudo.conf.man.in,
+	docs/sudo.conf.mdoc.in, docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	docs/visudo.man.in, docs/visudo.mdoc.in, examples/sudo.conf.in,
+	pathnames.h.in, src/load_plugins.c, src/preload.c:
+	Use AIX-style shared libraries on AIX by default instead of
+	SVR4-style. This removes the need to use the -brtl linker flag which
+	can cause problems when there are both a .so and .a version of the
+	same library but with different versions. This was particularly
+	problematic when using the AIX freeware version of OpenSSL. The
+	--with-aix-soname=svr4 option can be used to build SVR4-style shared
+	libs instead.
+	[268bd3bc7717]
+
+	* lib/util/sudo_dso.c, src/load_plugins.c:
+	sudo_dso_load: add AIX fallback path from shlib.so to
+	shlib.a(shlib.so). If the .so file is missing but the .a file
+	exists, try to dlopen() the AIX .a file using the .so name as the
+	member. We need to avoid breaking existing configurations if the
+	type of AIX shared library changes when sudo is upgraded.
+	[f64cf05bb2c2]
+
+	* plugins/sudoers/group_plugin.c, src/load_plugins.c:
+	Remove the owner and mode checks when loading a sudo plugin. The
+	sudo.conf file is considered a trusted source of information and
+	these checks suffer from TOCTOU issues anyway. The checks complicate
+	loading of shared objects since we need to perform fallback
+	processing twice.
+	[60a811d58138]
+
+	* MANIFEST, plugins/python/Makefile.in,
+	plugins/python/python_importblocker.c,
+	plugins/python/python_plugin_common.c,
+	plugins/python/regress/check_python_examples.c,
+	plugins/python/regress/testdata/sudo.conf.developer_mode,
+	plugins/python/regress/testdata/sudo.conf.normal_mode,
+	plugins/python/regress/testhelpers.c,
+	plugins/python/regress/testhelpers.h,
+	plugins/python/sudo_python_module.h:
+	Remove the Python plugin import blocker code. The sudo.conf file is
+	considered a trusted source of information and these checks suffer
+	from TOCTOU issues anyway.
+	[1d261d802b82]
+
+	* MANIFEST, docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in,
+	docs/sudo_plugin_python.man.in, docs/sudo_plugin_python.mdoc.in,
+	examples/sudo.conf.in,
+	lib/util/regress/corpus/seed/sudo_conf/sudo.conf.1,
+	lib/util/regress/corpus/seed/sudo_conf/sudo.conf.2,
+	lib/util/regress/corpus/seed/sudo_conf/sudo.conf.3,
+	lib/util/regress/fuzz/fuzz_sudo_conf.dict,
+	lib/util/regress/sudo_conf/conf_test.c,
+	lib/util/regress/sudo_conf/test1.in,
+	lib/util/regress/sudo_conf/test1.out.ok,
+	lib/util/regress/sudo_conf/test2.out.ok,
+	lib/util/regress/sudo_conf/test3.out.ok,
+	lib/util/regress/sudo_conf/test4.out.ok,
+	lib/util/regress/sudo_conf/test5.out.ok,
+	lib/util/regress/sudo_conf/test6.out.ok,
+	lib/util/regress/sudo_conf/test7.out.ok,
+	lib/util/regress/sudo_conf/test8.err.ok,
+	lib/util/regress/sudo_conf/test8.in,
+	lib/util/regress/sudo_conf/test8.out.ok, lib/util/sudo_conf.c:
+	Remove developer mode from sudo.conf, it is no longer used.
+	[2b350bfe4d7c]
+
+	* plugins/sudoers/sudoers_version.h:
+	Bump SUDOERS_GRAMMAR_VERSION to 50 for the new list pseudo-command.
+	[60e6e3b59b1e]
+
+2022-12-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/Makefile.in, docs/sudo.man.in, docs/sudo.mdoc.in,
+	docs/sudo_plugin_python.man.in, docs/sudo_plugin_python.mdoc.in,
+	docs/sudoreplay.man.in, docs/sudoreplay.mdoc.in:
+	Use ".Sy root" instead of ".Em root" when talking about the root
+	user. Replace MANDOCPROG with "mandoc" now that MANDOCPROG has been
+	removed.
+	[a0b80a88eb7c]
+
+2022-12-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #226 from rtczza/main
+
+	debug_return_int use error
+	[7743f67838ae]
+
+2022-12-23  wanglujun  <wanglujun@uniontech.com>
+
+	* src/exec_pty.c:
+	debug_return_int use error
+	[b69796b9b10b]
+
+2022-12-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/sudo_dso.c, src/load_plugins.c:
+	Fix support for AIX-style path(module) syntax in sudo.conf Plugin
+	lines.
+	[b8666283d2f2]
+
+2022-12-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in:
+	Mention the "list" privilege in the description of the -U option.
+	[f5416004ef2e]
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in, src/parse_args.c,
+	src/sudo_usage.h.in:
+	Add [arg ...] after command in SYNOPSIS and usage output. Use Ar
+	markup when referring to the command and args.
+	[40fca0824680]
+
+2022-12-17  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_preload.c:
+	fmtstr: call va_arg() for %c when computing length. Even though we
+	don't need to read the actual char to know its length, we do need to
+	consume it to get the correct value for the next format.
+	[fadd0047868b]
+
+	* configure, m4/sanitizer.m4:
+	SUDO_CHECK_SANITIZER: quote "$3" in awk script so m4 doesn't eat it.
+	[fcf1661bfebd]
+
+	* lib/util/regress/json/json_test.c:
+	Add missing sudo_json_free().
+	[fa5e5af55927]
+
+	* MANIFEST, lib/util/Makefile.in, lib/util/regex.c,
+	lib/util/regress/regex/regex_test.c:
+	check_pattern: check bounds as a repetition operator too. Add regess
+	to verify check_pattern() via sudo_regex_compile().
+	[48cbddf476a5]
+
+	* lib/util/regex.c:
+	Instead of collapsing duplicate repetition characters, reject them.
+	This is implementation-specific behavior--some regcomp(3) will
+	reject duplicate repetition characters (BSD), others will try to
+	support them (Glibc) but may allocate excessive amounts of memory.
+	[a0cb75d9b5e5]
+
+	* MANIFEST, docs/CONTRIBUTORS.md, po/sq.mo, po/sq.po:
+	New Albanian translation from translationproject.org
+	[4a8dedc6500d]
+
+2022-12-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* MANIFEST, include/sudo_json.h, lib/eventlog/eventlog.c,
+	lib/iolog/iolog_loginfo.c,
+	lib/iolog/regress/iolog_json/check_iolog_json.c,
+	lib/util/Makefile.in, lib/util/json.c,
+	lib/util/regress/json/json_test.c, lib/util/util.exp.in,
+	logsrvd/logsrvd_local.c, plugins/audit_json/audit_json.c,
+	plugins/sudoers/cvtsudoers_json.c:
+	Add basic regress for JSON functions. Fix a bug in escaped control
+	character handling. Roll back changes to buffer if
+	sudo_json_add_value() fails.
+	[8b61266511fe]
+
+	* plugins/python/regress/iohelpers.c,
+	plugins/python/regress/testhelpers.c:
+	Add missing memory allocation failure checks. Inspired by GitHub PR
+	#221
+	[9f09479191e9]
+
+2022-12-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/json.c:
+	Escape control characters in strings.
+	[9668cd68daee]
+
+2022-12-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in:
+	Mention the audit plugin in the "Process model" section. Remove
+	extraneous information describing how sudo may exec the command
+	directly, this is already included in the non-pty section.
+	[9d01a9682ed2]
+
+2022-12-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/sudoers.c:
+	Plug a memory leak of list_cmnd in the fuzzers.
+	[b413becfb8db]
+
+	* plugins/sudoers/cvtsudoers.c:
+	Suppress PVS Studio watning about reassigning a variable the same
+	value. Working around the warning would result in more fragile code.
+	[b4227e531fb7]
+
+	* lib/util/regress/multiarch/multiarch_test.c:
+	Fix memory leak in multiarch_test to quiet leak sanitizer.
+	[1491ce67725c]
+
+	* plugins/python/python_plugin_audit.c,
+	plugins/python/python_plugin_common.c,
+	plugins/python/python_plugin_io.c,
+	plugins/python/python_plugin_policy.c:
+	Fix some dead stores noted by PVS Studio. Since rc is initialized to
+	SUDO_RC_ERROR there is no need to set it to SUDO_RC_ERROR again on
+	failure if rc has not been changed since initialization.
+	[f6c075dedfe3]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/logging.c, plugins/sudoers/match_command.c,
+	plugins/sudoers/parse.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/sudoers.h, plugins/sudoers/toke.c,
+	plugins/sudoers/toke.l:
+	Add "list" pseudo-command to allow a user to list another user's
+	privs. Previously, only root or a user with the ability to run any
+	command as either root or the target user on the current host could
+	use the -U option. For "sudo -l [-U otheruser] command", NewArgv[0]
+	is now set to "list" (just like "sudo -l") and the actual command to
+	be checked starts with NewArgv[1].
+	[225eac96d11f]
+
+2022-12-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* etc/codespell.exclude:
+	Adjust a line to quiet codespell warning.
+	[f920076a902d]
+
+2022-12-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Makefile.in:
+	Only build ChangeLog from a repo checkout, not a release tarball.
+	The CODEOWNERS file is not present in the release tarball so we can
+	use that when determining what is (or is not) a repo checkout.
+	[290ce43f0f66]
+
+	* docs/CODEOWNERS:
+	Add CODEOWNERS file, currently all owned by @millert.
+	[3becb02b5cd6]
+
+	* .gitignore, .hgignore, Makefile.in:
+	Only regenerate ChangeLog if there have been changes. Also check
+	that "hg --version" or "git --version" works before using hg or git.
+	Bug #1043.
+	[d9a28bb02621]
+
+2022-12-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/parse.c:
+	Fix potential crash introduced in the fix for GitHub issue #134. If
+	a user's sudoers entry did not have any RunAs user's set, running
+	"sudo -U otheruser -l" would dereference a NULL pointer. We need to
+	compare the default RunAs user if the sudoers entry does not specify
+	one explicitly. Problem reported by Andreas Mueller who also
+	suggested a different solution in PR #219.
+	[360e04f13024] <1.9>
+
+	* plugins/sudoers/parse.c:
+	Fix potential crash introduced in the fix for GitHub issue #134. If
+	a user's sudoers entry did not have any RunAs user's set, running
+	"sudo -U otheruser -l" would dereference a NULL pointer. We need to
+	compare the default RunAs user if the sudoers entry does not specify
+	one explicitly. Problem reported by Andreas Mueller who also
+	suggested a different solution in PR #219.
+	[3d12dfeef26b]
+
+	* scripts/build_pkgs:
+	Defer installing the SIGCHLD handler until after non-job commands
+	run. Lock the socket dir to avoid races in
+	open_persistent_connection(). Also avoid using "ssh -f" since that
+	may return before the socket is created. Strip carriage returns from
+	log when running in a pty.
+	[d0da1a261fbc]
+
+2022-12-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, m4/sudo.m4:
+	Fix a typo in SUDO_CHECK_NET_FUNC.
+	[08cb2ba84897]
+
+	* lib/util/inet_ntop.c:
+	Fix -Wsign-compare warning.
+	[45e2716ece56]
+
+	* configure, m4/sudo.m4:
+	Initialize "found" in SUDO_CHECK_NET_FUNC.
+	[a5daeb77e6bb]
+
+	* configure, m4/sudo.m4:
+	Fix pasto introduced in last commit.
+	[7e1b09977be3]
+
+	* lib/eventlog/Makefile.in, lib/iolog/Makefile.in,
+	lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/python/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	Fix failure in check targets when there is no UTF-8 C locale.
+	[721c8bdff28f]
+
+	* configure, configure.ac, m4/sudo.m4:
+	Add SUDO_CHECK_NET_FUNC to check functions in the network libraries.
+	If a function is not found, check again with "-lsocket", "-linet",
+	"-lsocket -lnsl", or "-lresolv". Also display network libs in final
+	summary as well as the different linker flags.
+	[a0ce3347cd8d]
+
+	* configure, m4/sudo.m4:
+	Make sure HAVE_MAILLOCK_H is defined on Solaris 10.
+	[bb9f3a1beff5]
+
+	* configure, configure.ac:
+	Remove extraneous "(cached)" line when the -C option is used. We do
+	not need to call AC_CACHE_VAL() to ensure that a variable is cached,
+	its name just needs to match the pattern *_cv_*.
+	[b8ffa09d0cd7]
+
+	* configure, m4/sudo.m4:
+	Make path checks in sudo.m4 cachable.
+	[0bcfa73702d3]
+
+	* configure, configure.ac:
+	Use AC_PATH_PROGS_FEATURE_CHECK to find mandoc/nroff. We don't use
+	the NROFFPROG or MANDOCPROG any longer so no need to set those.
+	[7d96680046a6]
+
+	* configure, configure.ac:
+	Don't check for _sys_siglist if sys_siglist is found.
+	[2c70aba3935c]
+
+	* configure, configure.ac:
+	Fix check for sys_sigabbrev.
+	[b8537a76815f]
+
+2022-12-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Skip test for __func__ on C99 and above, avoid extra _sys_signame
+	test.
+	[71f3497a6a3a]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/gettext.m4:
+	Move gettext checks to m4/gettext.m4
+	[693029542e06]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/ldap.m4:
+	Move LDAP library checks to m4/ldap.m4 and make more tests
+	cacheable.
+	[85fa1f49298a]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/openssl.m4:
+	Move OpenSSL/wolfSSL checks to m4/openssl.m4
+	[08b90f3cef52]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/pie.m4:
+	Move PIE executable checks to m4/pie.m4
+	[6b5cac6cecd5]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/sanitizer.m4:
+	Move address sanitizer and fuzzer checks to m4/sanitizer.m4
+	[a6372917d53b]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/visibility.m4:
+	Move symbol visibility checks to m4/visibility.m4
+	[4684049c2d2c]
+
+	* MANIFEST, aclocal.m4, configure, configure.ac, m4/hardening.m4:
+	Move hardening checks to m4/hardening.m4
+	[c03abb3c9f55]
+
+	* configure, configure.ac, m4/sudo.m4:
+	Make cpp variadic arguments check into a macro and move to sudo.m4.
+	Also move the PVS-Studio.cfg generation to sudo.m4.
+	[c1a8d3b46be1]
+
+2022-12-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/snprintf.c:
+	Sync with OpenBSD.
+	[157439118867]
+
+	* Merge pull request #218 from sohomdatta1/snprintf
+
+	[snprintf] Check for '\0' to prevent undef memory read
+	[050882923c98]
+
+2022-12-03  Sohom  <sohomdatta1+git@gmail.com>
+
+	* lib/util/snprintf.c:
+	[snprintf] Check for '\0' to prevent undef memory read
+	[aff60c479c10]
+
+2022-12-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/eventlog/eventlog.c, plugins/sudoers/cvtsudoers.c,
+	plugins/sudoers/sudoreplay.c, plugins/sudoers/testsudoers.c,
+	plugins/sudoers/tsdump.c, plugins/sudoers/visudo.c,
+	src/parse_args.c, src/regress/noexec/check_noexec.c:
+	Place C23 attributes before keywords in function declarations. In
+	practice this means we must use "sudo_noreturn static foo(void)"
+	instead of "static sudo_noreturn foo(void)".
+	[6c1836dcb2d6]
+
+2022-11-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/build_pkgs:
+	Convert from using IPC::Open3 to IPC::Run. Run tests in a pty so
+	check_ttyname works as expected. Explicitly set short command line
+	options letters in GetOptions(). Add a debug flag to help see what
+	is going on internally. Add hook for die() to kill running jobs when
+	we are dying. SSH_AGENT_PID will not be present if the agent is
+	forwarded. In close_persistent_connections() only close active
+	connections.
+	[d49e1ac7e2f2]
+
+2022-11-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* config.h.in, configure.ac, include/sudo_compat.h:
+	Use C23 [[__fallthrough__]] and [[__noreturn__]] attributes if
+	supported. If the C23 attributes are not supported, use gcc-style
+	attributes where possible.
+	[57676068e9a9]
+
+	* configure, configure.ac:
+	Move the check for the fallthrough attribute outside the warnings
+	block. Use AX_APPEND_FLAG instead of addind to CFLAGS directly.
+	[dc22d8238827]
+
+2022-11-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/build_pkgs:
+	The distributed package build script I use to build all sudo
+	packages. This is not included in the release tarball because it is
+	of limited use to other people.
+	[94c58cc272c8]
+
+2022-11-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Makefile.in:
+	Pass the list of files to include in the tarball on stdin. This
+	avoids any limit on the size of argv.
+	[0af8578c89fe]
+
+2022-11-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #214 from BornThisWay/1124_repeated_invocation
+
+	check_syntax(): Remove duplicate calls to init_defaults()
+	[3383fb0a6f5f]
+
+2022-11-24  modric  <pioneerbtw7@163.com>
+
+	* plugins/sudoers/visudo.c:
+	check_syntax(): Remove duplicate calls to init_defaults()
+	[048ccd968df9]
+
+2022-11-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sample/sample_plugin.c:
+	build_command_info: free command_info on failure. Once upon a time,
+	command_info was a stack variable, now it is dynamically allocated.
+	Coverity CID 299987.
+	[a80110e49952]
+
+	* plugins/sample/sample_plugin.c:
+	Better handling of out-of-memory conditions.
+	[ee3e47c4d272]
+
+	* plugins/group_file/group_file.c:
+	Keep group file open until the call to myendgrent(). This restores
+	the previous behavior.
+	[79751f7308d7]
+
+	* lib/util/json.c, plugins/group_file/getgrent.c,
+	plugins/sudoers/cvtsudoers_merge.c, plugins/sudoers/env.c,
+	plugins/sudoers/iolog.c, plugins/sudoers/ldap.c,
+	plugins/sudoers/ldap_conf.c, plugins/sudoers/log_client.c,
+	plugins/sudoers/match_command.c, plugins/sudoers/strvec_join.c,
+	plugins/sudoers/tsgetgrpw.c, plugins/sudoers/visudo.c, src/sudo.c:
+	Eliminate a few harmless dead stores. Quiets warnings from Infer.
+	[8bed7579b75d]
+
+	* plugins/sudoers/ldap_util.c:
+	sudo_ldap_parse_option: add explicit NULL check for strchr(). This
+	should not be needed since we only use the returned pointer if it is
+	larger than the string passed to strchr(). Quiets a warning from
+	Infer.
+	[852aec3e0450]
+
+	* logsrvd/logsrvd_journal.c:
+	journal_fdopen: free journal_path and close journal before setting
+	Fixes a potential resource leak that currently cannot happen. Quiets
+	a warning from Infer.
+	[bfe41e247c35]
+
+	* plugins/sudoers/ldap.c:
+	sudo_ldap_result_add_entry: check sudo_ldap_get_values_len() return
+	value. Previously, we just compared the error code with
+	LDAP_NO_MEMORY when checking for sudoOrder since this is the only
+	error we care about. We now return NULL for LDAP_NO_MEMORY and
+	ignore other errors. Quiets a warning from Infer.
+	[6e5a490b735c]
+
+	* plugins/group_file/getgrent.c, plugins/sudoers/tsgetgrpw.c,
+	plugins/sudoers/tsgetgrpw.h:
+	Refactor code to open passwd/group file and add
+	setpassent/setgroupent. This makes the "stayopen" semantics match
+	the system passwd/group functions. The getpwent/getgrent functions
+	now open the database if it is not already open.
+	[27bfa97ad47c]
+
+	* plugins/sudoers/Makefile.in, plugins/sudoers/gram.h:
+	gram.h: #line directives should reference gram.h not y.tab.h.
+	[7a2d4a24d839]
+
+	* scripts/mkpkg:
+	Use clang, not /usr/bin/cc on FreeBSD and macOS. While /usr/bin/cc
+	_is_ clang on those platforms, some static analyzers get confused if
+	we don't run it as clang.
+	[d0c1f5940789]
+
+2022-11-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #212 from BornThisWay/1122_null_deref
+
+	sudo_rcstr_dup: Fix potential NULL pointer deref
+	[58fcefa888fa]
+
+2022-11-22  modric  <pioneerbtw7@163.com>
+
+	* lib/util/rcstr.c:
+	sudo_rcstr_dup: Fix potential NULL pointer deref
+	[f45acaded1e5]
+
+2022-11-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/check.c:
+	Add a reminder to the default lecture that the password will not
+	echo. This line is only displayed when the pwfeedback option is
+	disabled. GitHub issue #195.
+	[7bc25043c760]
+
+	* Merge pull request #210 from BornThisWay/1121_typo
+
+	Fix some typos
+	[9d1e9278effb]
+
+2022-11-21  modric  <pioneerbtw7@163.com>
+
+	* plugins/python/regress/testhelpers.h, plugins/sudoers/parse.c:
+	Fix some typos
+	[d7d1c3ade748]
+
+2022-11-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #208 from BornThisWay/1121_return
+
+	intercept_read: Print and then return.
+	[615c2d5fca36]
+
+2022-11-21  modric  <pioneerbtw7@163.com>
+
+	* src/exec_intercept.c:
+	intercept_read: Print and then return.
+	[049547eb7ac0]
+
+2022-11-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #205 from BornThisWay/1119_access_null_pointer
+
+	sudo_mmap_strdup_v1: Fix potential NULL pointer deref
+	[bad55afc72bb]
+
+2022-11-19  modric  <pioneerbtw7@163.com>
+
+	* lib/util/mmap_alloc.c:
+	sudo_mmap_strdup_v1: Fix potential NULL pointer deref
+	[f8da23aff2ec]
+
+2022-11-18  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/sudo_intercept.c:
+	copy_vector: plug memory leak in error path Only the array was being
+	freed, not the contents. GitHub issue #202.
+	[cd1407dbe65f]
+
+2022-11-17  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/mkpkg:
+	Better matching of macOS version to SDK path.
+	[db7f2cbdb023]
+
+	* Merge pull request #200 from BornThisWay/fix_mem_leak_converse
+
+	Fix memory leak of pass in converse().
+	[b411801abdf7]
+
+	* plugins/sudoers/auth/passwd.c:
+	sudo_passwd_cleanup: Set auth->data to NULL after freeing. GitHub
+	issue #201
+	[e558188bd99d]
+
+2022-11-17  modric  <pioneerbtw7@163.com>
+
+	* plugins/sudoers/auth/pam.c:
+	Fix memory leak of pass in converse().
+	[052c99eaad8f]
+
+2022-11-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* config.h.in, configure, configure.ac:
+	Use AC_SYS_YEAR2038 instead of setting _TIME_BITS by hand.
+	[049113d798e9]
+
+	* configure, m4/ax_append_flag.m4, m4/ax_check_compile_flag.m4,
+	m4/ax_func_snprintf.m4, m4/ax_prog_cc_for_build.m4:
+	Update macros from autoconf-archive.
+	[48b960c883df]
+
+	* plugins/sudoers/regress/corpus/seed/ldif/pr196.ldif,
+	plugins/sudoers/regress/visudo/test3.sh:
+	Fix typo; excerise -> exercise
+	[42cdb396b72b]
+
+	* config.h.in, configure, scripts/config.guess, scripts/config.sub:
+	Regenerate with the autoconf 2.72a pre-release.
+	[51d043878181]
+
+	* configure.ac:
+	Fix insufficient quoting in AC_CHECK_LIB() calls.
+	[78d37b60a912]
+
+	* autogen.sh:
+	If AUTOCONF_VERSION is unset, use version 2.71 not 2.69.
+	[108faf700aa7]
+
+	* configure.ac, m4/ax_func_getaddrinfo.m4, m4/sudo.m4:
+	Replace `foo` in descriptions with 'foo'
+	[ba63cef7bbe8]
+
+2022-11-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Add -Wvla and -Walloca to --enable-warnings
+	[7b9b59e35905]
+
+2022-11-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/pwutil.c:
+	sudo_debug_group_list: short-circuit if groups is NULL
+	[0f8f11ef82b6]
+
+	* configure, configure.ac:
+	configure: only check for getauxval() if getentropy() is missing.
+	[c056c2fc3898]
+
+	* config.h.in, configure, configure.ac:
+	Remove checks for random() and lrand48(), they are no longer used.
+	Also remove duplicate checks for arc4random() and getentropy().
+	[e3433874211d]
+
+	* configure, configure.ac:
+	Skip check for cpp variadic macro support if the compiler supports
+	C99.
+	[42efc9934ef5]
+
+	* configure, configure.ac:
+	HI-UX/MPP is based on OSF-1, not HP-UX Completely untested.
+	[c55ba59cd24d]
+
+	* configure, configure.ac:
+	Only check for utmps.h on HP-UX.
+	[682bb16545cf]
+
+	* configure, configure.ac:
+	Only check for sys/syscall.h on Linux. We only use it in the Linux-
+	specific getentropy() emulation code.
+	[eac313bfc142]
+
+	* config.h.in, configure, configure.ac:
+	configure: avoid running unnecessary tests on modern systems. Remove
+	AC_SYS_POSIX_TERMIOS, AC_TYPE_MODE_T, AC_TYPE_UID_T. Add missing
+	checks for int16_t, uint16_t, int32_t, and int64_t. Only check for
+	intmax_t, uintmax_t and bit-width types if missing both inttypes.h
+	and stdint.h. Remove unused clockid_t replacement.
+	[9f1f9d365f60]
+
+	* MANIFEST, plugins/sudoers/regress/cvtsudoers/test40.out.ok,
+	plugins/sudoers/regress/cvtsudoers/test40.sh:
+	Add a regress check for the cvtsudoers filter crash. GitHub issue
+	#198.
+	[f0abea1f10d0]
+
+	* Makefile.in, lib/eventlog/Makefile.in, lib/iolog/Makefile.in,
+	lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/python/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	The name of the C locale w/ UTF-8 support is not always C.UTF-8. Use
+	a pattern to find it (if present) and use that value instead of
+	hard-coding C.UTF-8. This works around a leak sanitizer crash on
+	certain inputs.
+	[99aeb5a875f7]
+
+2022-11-10  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/parse_ldif.c:
+	Fix a potential use-after-free bug with cvtsudoers filtering. In
+	role_to_sudoers() when merging a privilege to the previous one where
+	the runas lists are the same we need to re-use the runas lists of
+	the last command in the previous privilege, not the first.
+	Otherwise, the check in free_cmndspec() will not notice the re-used
+	runas lists. Reported/analyzed by Sohom Datta. GitHub issue #198.
+	[29d1380d2fe0]
+
+	* MANIFEST, plugins/sudoers/Makefile.in,
+	plugins/sudoers/regress/corpus/seed/ldif/invalid_b64.ldif,
+	plugins/sudoers/regress/corpus/seed/ldif/pr196.ldif,
+	plugins/sudoers/regress/corpus/seed/ldif/sample.ldif,
+	plugins/sudoers/regress/corpus/seed/ldif/valid_b64.ldif,
+	plugins/sudoers/regress/cvtsudoers/test39.sh:
+	Copy some LDIF test data from the cvtsudoers tests to the seed
+	corpus. This includes a test to exercise the fix in PR #196.
+	[f74d65cf34d1]
+
+	* plugins/sudoers/regress/fuzz/fuzz_sudoers_ldif.c:
+	Set LDAP base for sudoers_parse_ldif(). Without this set the fuzzer
+	will not exercise the dn parsing.
+	[c154b1a5d287]
+
+	* src/exec_ptrace.h:
+	Include linux/elf.h, not elf.h to make sure we get
+	NT_ARM_SYSTEM_CALL. The NT_PRSTATUS define is present in both files.
+	[161f41f644ca] <1.9>
+
+	* src/exec_ptrace.h:
+	Include linux/elf.h, not elf.h to make sure we get
+	NT_ARM_SYSTEM_CALL. The NT_PRSTATUS define is present in both files.
+	[4a4e3142381a]
+
+2022-11-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_compat.h:
+	Remove CMSG_* compatibility macros, they are no longer used.
+	[5914434ecb5c]
+
+	* lib/util/multiarch.c, lib/util/sudo_dso.c:
+	Add missing include of sys/stat.h
+	[d3b0f701c75f]
+
+	* include/sudo_util.h:
+	Move forward declaration of struct stat before its first use.
+	[f3cc645d197c]
+
+	* plugins/sudoers/regress/cvtsudoers/test28.sh,
+	plugins/sudoers/regress/cvtsudoers/test29.sh,
+	plugins/sudoers/regress/cvtsudoers/test33.sh,
+	plugins/sudoers/regress/cvtsudoers/test39.sh:
+	Use a consistent base when testing cvtsudoers conversion from ldif.
+	[a22cb486b2a3]
+
+	* MANIFEST, plugins/sudoers/Makefile.in,
+	plugins/sudoers/regress/cvtsudoers/test39.out.ok,
+	plugins/sudoers/regress/cvtsudoers/test39.sh,
+	plugins/sudoers/regress/harness.in:
+	Test parsing LDIF when a backslash is the last char of the file. If
+	run with address sanitizer, this test will crash when the fix in
+	ceaf706ab74b is reverted.
+	[f50c78b7ed32]
+
+	* Merge pull request #196 from sohomdatta1/main
+
+	Prevent cvtsudoers from reading into undefined memory
+	[f21c417bbbb3]
+
+2022-11-09  Sohom  <sohom.datta@learner.manipal.edu>
+
+	* plugins/sudoers/parse_ldif.c:
+	[cvtsudoers]: Prevent sudo from reading into undefined memory
+	[ceaf706ab74b]
+
+2022-11-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/auth/passwd.c:
+	sudo_passwd_verify: zero out des_pass before returning.
+	[c809232fdb7d]
+
+2022-11-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_pty.c:
+	Don't kill the parent process group on suspend if it is not sudo's
+	pid. If sudo is not the process group leader we must only send the
+	suspend signal to sudo itself. When sudo is run via a shell script,
+	it usually has the same process group as the shell script
+	interpreter. We do not want to suspend the script itself when the
+	command run by sudo is suspended.
+	[e6715ec62335]
+
+	* src/exec_nopty.c, src/regress/intercept/test_ptrace.c,
+	src/sudo_exec.h, src/suspend_nopty.c:
+	Pass sudo's process ID to suspend_sudo_nopty() since we already know
+	it. Saves an unnecessary getpid(2) call.
+	[1e12d9b0ce53]
+
+	* src/exec_nopty.c:
+	Call terminate_command() with use_pgrp = false when not running in a
+	pty. When sudo runs a command in the user's existing terminal the
+	command is run in the same process group as sudo itself. The proper
+	way to terminate it is to use kill(2), not killpg(3)
+	[3d9862963e92]
+
+	* src/exec_monitor.c, src/exec_nopty.c, src/exec_pty.c,
+	src/sudo_exec.h:
+	Fix handling of signal forwarding when running commands in a script.
+	We need to forward signals from a process in the same pgrp if the
+	pgrp leader is not either sudo or the command itself.
+	[d1bf60eac57f]
+
+	* src/regress/intercept/test_ptrace.c:
+	Make test_ptrace compile again after recent changes.
+	[e766db5aa9d4]
+
+	* src/exec_intercept.c, src/exec_intercept.h, src/exec_ptrace.c:
+	Update the cwd for log_subcmds too. Fixes a problem for
+	intercept_method=trace when running a relative command from a
+	different directory than what sudo ws started from. GitHub issue
+	#194
+	[b831f2397d9f]
+
+2022-11-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_12p1 for changeset 39cf4d8052ff
+	[28ed2d994f40] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Merge sudo 1.9.12p1 from tip.
+	[39cf4d8052ff] [SUDO_1_9_12p1] <1.9>
+
+	* NEWS, aclocal.m4, configure, configure.ac:
+	sudo 1.9.12p1
+	[6268fbabdb16]
+
+2022-11-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/iolog/host_port.c:
+	Include time.h for struct timespec used by sudo_iolog.h.
+	[369c8e799652]
+
+	* src/sudo.c:
+	Display sudo_mode in hex in debug log. This makes it easier to match
+	against the MODE_ defines.
+	[971e8f88bc12]
+
+2022-11-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/auth/bsdauth.c:
+	bsdauth_verify: do not write to prompt, it is now const
+	[1969a562cf14]
+
+	* plugins/sudoers/toke.c, plugins/sudoers/toke.l:
+	Store raw sudoers lines in the debug log. Also add a "sudoerslex"
+	prefix to the token debug info in sudoers_trace_print().
+	[be03aef496cb]
+
+2022-10-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/toke.c, plugins/sudoers/toke.l:
+	The line numbers in sudoers_trace_print() were off by one. The line
+	counter is incremented when a newline is seen so the output actually
+	refers to the previous line.
+	[a97182a63419]
+
+	* plugins/sudoers/auth/API, plugins/sudoers/auth/afs.c,
+	plugins/sudoers/auth/aix_auth.c, plugins/sudoers/auth/bsdauth.c,
+	plugins/sudoers/auth/dce.c, plugins/sudoers/auth/fwtk.c,
+	plugins/sudoers/auth/kerb5.c, plugins/sudoers/auth/pam.c,
+	plugins/sudoers/auth/passwd.c, plugins/sudoers/auth/rfc1938.c,
+	plugins/sudoers/auth/secureware.c, plugins/sudoers/auth/securid5.c,
+	plugins/sudoers/auth/sia.c, plugins/sudoers/auth/sudo_auth.h:
+	Make the second arg to the sudo auth verify function const. This may
+	be either a plaintext password or a password prompt. Either way it
+	should not be modified by the verify function.
+	[11aefc2bc3da]
+
+2022-10-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/match.c:
+	Move debugging info from hostname_matches() to host_matches().
+	[2a53d2dcd1f5]
+
+2022-10-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/pwutil.c:
+	Add debugging to sudo_set_grlist() and sudo_set_gidlist().
+	[620d6f7fb4f8]
+
+	* plugins/sudoers/auth/passwd.c:
+	Fix CVE-2022-43995, potential heap overflow for passwords < 8
+	characters. Starting with sudo 1.8.0 the plaintext password buffer
+	is dynamically sized so it is not safe to assume that it is at least
+	9 bytes in size. Found by Hugo Lefeuvre (University of Manchester)
+	with ConfFuzz.
+	[a6229aa26fbf]
+
+2022-10-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	configure: better test for -fstack-clash-protection The gcc front-
+	end may accept -fstack-clash-protection even if the machine-specific
+	code does not support it. We use a test program with a large stack
+	allocation to try to cause the compiler to insert the stack clash
+	protection code, or fail if not supported. GitHub issue #191
+	[bbfbe758258c]
+
+	* configure, configure.ac:
+	Check that compiler accepts -fstack-clash-protection and -fcf-
+	protection. Previously, we only checked that linker accepted them.
+	GitHub issue #191
+	[7d36b89b6e4d]
+
+2022-10-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	Fix compilation error on Linux/mips.
+	[ae4c28d8a050]
+
+2022-10-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_12 for changeset b53d725f7c88
+	[dd962ed18037] <1.9>
+
+	* NEWS, config.h.in, configure, configure.ac, include/sudo_compat.h,
+	logsrvd/tls_init.c, plugins/sudoers/regress/fuzz/fuzz_policy.c:
+	Merge sudo 1.9.12 from tip.
+	[b53d725f7c88] [SUDO_1_9_12] <1.9>
+
+	* src/Makefile.in:
+	Regenerate dependencies for src/sesh.c.
+	[ada8f04afc6d]
+
+	* plugins/audit_json/Makefile.in, plugins/sample_approval/Makefile.in:
+	Sync clean target with other Makefile.in files.
+	[8048628a554e]
+
+	* Makefile.in, plugins/sample/Makefile.in:
+	Build the sample plugin but do not install it by default. We no
+	longer install the sample approval plugin.
+	[a8644924b6a1]
+
+	* plugins/sample/sample_plugin.c:
+	Adapt to current plugin API and fix warnings.
+	[d822f1a10361]
+
+2022-10-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/sudoers.c:
+	Disable admin_flag by setting to NULL, not false. Found by cppcheck.
+	[6e32481e0555]
+
+	* NEWS:
+	Bug #1042.
+	[85d508b6d5e5]
+
+	* include/sudo_util.h, lib/util/fatal.c, lib/util/term.c,
+	lib/util/util.exp.in, src/conversation.c:
+	Only add trailing carriage return to messages if output is a raw
+	tty. If output is being written to a terminal in "raw" mode, we need
+	to add a carriage return after the newline to avoid "stair-step"
+	output. However, we should not write the carriage return if the
+	terminal is in "cooked" mode, output to a pipe, or output redirected
+	to a file. Bug #1042.
+	[14f5bf04245f]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Make it clear that runas_default sets the default user for
+	Runas_Spec. Also use mention runas_default in other parts of the
+	manual, use @runas_default@ instead of root and add markup around
+	user names. GitHub issue #186.
+	[73f0b82a2b22]
+
+	* lib/util/multiarch.c, lib/util/sudo_dso.c:
+	Fix a typo, muti-arch -> multi-arch GitHub issue #185
+	[d88270b9e98f]
+
+2022-10-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Mention log_servers eventlog fix.
+	[484b76589309]
+
+	* plugins/sudoers/policy.c:
+	Don't NULL out the plugin close function when logging to a log
+	server. If sudo calls execve(2) directly the accept info will not be
+	sent. We also need the sudo front-end to wait until the command
+	finishes to send the exit status.
+	[11976aa84040]
+
+2022-10-17  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* INSTALL.md:
+	Fix numbering in "Simple sudo installation"
+	[695bec2a6223]
+
+2022-10-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	zlib 1.2.13 update
+	[2119981787f0]
+
+	* plugins/sudoers/po/de.mo, plugins/sudoers/po/de.po,
+	plugins/sudoers/po/fr.mo, plugins/sudoers/po/fr.po,
+	plugins/sudoers/po/ja.mo, plugins/sudoers/po/ja.po,
+	plugins/sudoers/po/ko.mo, plugins/sudoers/po/ko.po,
+	plugins/sudoers/po/pl.mo, plugins/sudoers/po/pl.po,
+	plugins/sudoers/po/ro.mo, plugins/sudoers/po/ro.po,
+	plugins/sudoers/po/sr.mo, plugins/sudoers/po/sr.po,
+	plugins/sudoers/po/sv.mo, plugins/sudoers/po/sv.po,
+	plugins/sudoers/po/uk.mo, plugins/sudoers/po/uk.po, po/cs.mo,
+	po/cs.po, po/de.mo, po/de.po, po/fr.mo, po/fr.po, po/ja.mo,
+	po/ja.po, po/ka.mo, po/ka.po, po/ko.mo, po/ko.po, po/pl.mo,
+	po/pl.po, po/ro.mo, po/ro.po, po/sr.mo, po/sr.po, po/sv.mo,
+	po/sv.po, po/uk.mo, po/uk.po:
+	Updated translations from translationproject.org
+	[b1f28405c58d]
+
+	* lib/zlib/zconf.h.in:
+	Don't define _LARGEFILE64_SOURCE or _LFS64_LARGEFILE. We don't need
+	them and the missing prototype for crc32_combine_gen64() issue has
+	been fixed upstream.
+	[39eb41f1dba4]
+
+2022-10-13  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/zlib/compress.c, lib/zlib/crc32.c, lib/zlib/deflate.c,
+	lib/zlib/deflate.h, lib/zlib/gzlib.c, lib/zlib/gzread.c,
+	lib/zlib/gzwrite.c, lib/zlib/infback.c, lib/zlib/inflate.c,
+	lib/zlib/inftrees.c, lib/zlib/inftrees.h, lib/zlib/trees.c,
+	lib/zlib/uncompr.c, lib/zlib/zconf.h.in, lib/zlib/zlib.h,
+	lib/zlib/zutil.c, lib/zlib/zutil.h:
+	Update embedded copy of zlib to version 1.2.13. Fixes
+	CVE-2022-37434.
+	[737d6de5253c]
+
+	* lib/util/fchownat.c:
+	Add fchownat() for systems without it.
+	[7c4aeda51522]
+
+2022-10-10  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Update NEWS for 1.9.12.
+	[a4b090f3f6c8]
+
+	* plugins/sudoers/po/sudoers.pot, po/sudo.pot:
+	Update .pot files for 1.9.12
+	[179fba83936d]
+
+	* src/selinux.c, src/sesh.c, src/sudo_edit.c:
+	Use getopt() and getopt_long() for sesh command line options.
+	[fbaa6c75e2ef]
+
+	* plugins/sudoers/def_data.c, plugins/sudoers/def_data.in:
+	Update the description of intercept_verify
+	[63f80a7cd4a6]
+
+2022-10-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/load_plugins.c:
+	Silence a warning from the Solaris Studio compiler.
+	[49a3c72cb539]
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in,
+	include/sudo_eventlog.h, include/sudo_json.h, include/sudo_plugin.h,
+	lib/eventlog/eventlog.c, lib/iolog/iolog_loginfo.c,
+	lib/iolog/regress/iolog_json/check_iolog_json.c, lib/util/json.c,
+	logsrvd/logsrvd_local.c, plugins/audit_json/audit_json.c,
+	plugins/sudoers/sudoers.h, src/env_hooks.c, src/exec_intercept.c,
+	src/net_ifs.c, src/sudo_intercept_common.c, src/sudo_plugin_int.h:
+	Avoid a -Wshadow warning on Solaris 9.
+	[e6bc419fa976]
+
+	* lib/util/mmap_alloc.c:
+	Fix a build error on Solaris 9.
+	[679b60caf5a3]
+
+2022-10-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/parse.c:
+	Fix display of command tags and options in "sudo -l" when RunAs
+	changes. A new line is started when RunAs changes which means we
+	need to display the command tags and options again. GitHub issue
+	#184
+	[3180777986de]
+
+	* plugins/sudoers/fmtsudoers.c:
+	Fix printing of MYSELF when listing another user's privileges. We
+	need to use list_pw if it is set instead of user_name. GitHub issue
+	#183
+	[268044635b44]
+
+	* NEWS:
+	Update NEWS file with recent changes.
+	[200ac32d330b]
+
+	* MANIFEST, include/sudo_util.h, lib/util/Makefile.in,
+	lib/util/multiarch.c, lib/util/regress/multiarch/multiarch_test.c,
+	lib/util/sudo_dso.c, lib/util/util.exp.in, src/load_plugins.c:
+	Apply multiarch rules when loading plugins too.
+	[f53fe06fce06]
+
+2022-10-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/sudo_dso.c:
+	sudo_dso_load: try multi-arch on Linux if we can't load the path.
+	For example, if loading /usr/lib/libsss_sudo.so fails, try again
+	with /usr/lib/x86_64-linux-gnu/libsss_sudo.so.
+	[4eabffa486b5]
+
+	* MANIFEST, lib/util/Makefile.in,
+	lib/util/regress/open_parent_dir/open_parent_dir_test.c:
+	Add test for sudo open_parent_dir()
+	[2d6b1be616c9]
+
+	* MANIFEST, plugins/sudoers/regress/testsudoers/test19.out.ok,
+	plugins/sudoers/regress/testsudoers/test19.sh:
+	Add test for matching a literal "" command line argument as "" in
+	sudoers. GitHub issue #182.
+	[ccb5dc8b23ee]
+
+2022-10-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/visudo.man.in, docs/visudo.mdoc.in, plugins/sudoers/visudo.c:
+	Add -I flag to disable editing include files unless there is an
+	error. This can be used when you only want to edit a single sudoers
+	file unless there is a pre-existing syntax error.
+	[18fbf720fdbf]
+
+	* plugins/sudoers/match_command.c:
+	Do not match a literal "" command line argument as "" in sudoers. If
+	the empty string is specified in sudoers, no user args are allowed.
+	GitHub issue #182.
+	[5de0370eddcb]
+
+	* lib/util/sudo_conf.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/testsudoers.c, plugins/sudoers/timestamp.c:
+	sudo_secure_open_{file,dir}: always check thatreturn value is not
+	-1. Avoids false positives from static analyzers that can't figure
+	out that the fd is always valid when error is SUDO_PATH_SECURE.
+	[f0ebb2b836b9]
+
+	* lib/iolog/iolog_mkdtemp.c:
+	Correct return value when mkdtempat() fails.
+	[5a491fac8f49]
+
+	* lib/util/mkdir_parents.c:
+	sudo_open_parent_dir: stop before creating the last path component
+	Fix a regression introduced in sudo 1.9.9 where the entire directory
+	path was created instead of just the parent directory.
+	[fdaa5aeb744b]
+
+2022-10-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Makefile.in, scripts/log2cl.pl:
+	Use "hg log --template" instead of "hg log --style".
+	[63f020404fbb]
+
+2022-09-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/strlcpy_unesc.c, plugins/sudoers/sudoers.c,
+	src/parse_args.c:
+	Mark code that escapes/unescapes "sudo -s cmd args..." for removal.
+	A future version of the plugin API will defer any such escaping to
+	the policy plugin so it can be configurable.
+	[658d1bba4319]
+
+	* NEWS:
+	Update with recent changes.
+	[4a739e30c77f]
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in:
+	Improve the description of JSON output.
+	[258b57ce22ab]
+
+2022-09-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* INSTALL.md, etc/codespell.ignore, lib/eventlog/eventlog.c,
+	plugins/group_file/getgrent.c, plugins/sudoers/cvtsudoers.c,
+	plugins/sudoers/tsgetgrpw.c, plugins/sudoers/tsgetgrpw.h,
+	src/exec_nopty.c:
+	Fix typos found by codespell 2.2.1.
+	[3beaf856c861]
+
+	* logsrvd/iolog_writer.c:
+	Change max user-ID and group-ID from INT_MAX to UINT_MAX.
+	[0971e5f9f398]
+
+	* logsrvd/logsrvd_local.c:
+	Add support for NumberList stored in an InfoMessage.
+	[a762fe45e5cc]
+
+	* logsrvd/iolog_writer.c, logsrvd/logsrvd.c, logsrvd/logsrvd_local.c,
+	plugins/sudoers/log_client.c:
+	Add missing NULL checks for mandatory fields in protobuf messages.
+	Also no longer reject an InfoMessage with an unknown value_case,
+	just log and ignore it.
+	[41c38e7f075b]
+
+2022-09-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/log_client.c:
+	Don't send ttyname to log server if it is NULL. Otherwise the log
+	server will reject the AcceptMessage because a NULL string is not
+	allowed.
+	[df7fea4bef26]
+
+	* src/exec_nopty.c:
+	HP-UX has struct winsize in termios.h.
+	[5827a1f234fe]
+
+	* plugins/python/Makefile.in, src/Makefile.in:
+	Regen dependencies
+	[817623addc62]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in, src/exec.c,
+	src/exec_nopty.c, src/exec_pty.c,
+	src/regress/intercept/test_ptrace.c, src/sudo_exec.h,
+	src/suspend_nopty.c:
+	Add support for logging stdin/stdout/stderr in the non-pty exec
+	path. If we are logging I/O but not terminal input/output (either
+	because no terminal is present or because that is what the plugin
+	requested), the non-pty exec path is now taken.
+	[205c68d452df]
+
+	* MANIFEST, src/Makefile.in, src/exec.c, src/exec_iolog.c,
+	src/exec_nopty.c, src/exec_pty.c, src/regress/noexec/check_noexec.c,
+	src/sudo_exec.h, src/sudo_intercept_common.c:
+	Move exec code to call into I/O log plugin to exec_iolog.c. This
+	will be shared with exec_nopty.c in the future to log
+	stdin/stdout/stderr without running the command in a pty. Both
+	exec_pty.c and exec_nopty.c now use the same closure.
+	[45a19e8e3721]
+
+	* plugins/python/python_importblocker.c:
+	Implement find_spec, not the deprecated find_module. Fixes a test
+	failure due to find_module having removed from setuptools.
+	[cc1e68c0ee1e]
+
+2022-09-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/editor.c,
+	plugins/sudoers/regress/editor/check_editor.c:
+	copy_arg: fix copying an escaped backslash GitHub issue #179
+	[d21d95ec5cb0]
+
+2022-09-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* config.h.in, configure, configure.ac, include/sudo_compat.h,
+	lib/util/mktemp.c:
+	Use mkdtempat_np() and mkostempsat_np() on macOS
+	[ad0cd430347e]
+
+2022-09-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_iolog.h, lib/iolog/iolog_mkdirs.c,
+	lib/iolog/iolog_mkdtemp.c, lib/util/mkdir_parents.c,
+	logsrvd/logsrvd.c, logsrvd/logsrvd_journal.c:
+	Convert remaining uses of sudo_mkdir_parents() to
+	sudo_open_parent_dir().
+	[62fd9644a605]
+
+	* MANIFEST, config.h.in, configure, configure.ac,
+	include/sudo_compat.h, lib/util/Makefile.in, scripts/mkdep.pl:
+	Add fchownat() systems without it.
+	[d51316f1026d]
+
+	* config.h.in, configure, configure.ac, include/sudo_compat.h,
+	lib/util/mktemp.c, plugins/python/regress/iohelpers.h:
+	Add mkdtempat() and mkostempsat() for systems without them.
+	[099468742d16]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in, include/sudo_util.h,
+	lib/util/secure_path.c, lib/util/sudo_conf.c,
+	plugins/sudoers/regress/testsudoers/test11.out.ok,
+	plugins/sudoers/sudoers.c, plugins/sudoers/testsudoers.c,
+	plugins/sudoers/timestamp.c:
+	Use sudo_secure_open_file() instead of sudo_secure_file() where
+	possible. Both sudo_secure_open_file() and sudo_secure_open_dir()
+	are now passed a struct stat pointer like sudo_secure_file() and
+	sudo_secure_dir().
+	[c4e4c3f74ea4]
+
+	* include/sudo_util.h, lib/util/mkdir_parents.c,
+	lib/util/secure_path.c, lib/util/util.exp.in,
+	plugins/sudoers/timestamp.c:
+	Fix potential TOCTOU when creating time stamp directory and file.
+	[d36591f966c5]
+
+	* lib/util/mkdir_parents.c:
+	sudo_mkdir_parents: just use memcpy() to copy the path component.
+	Using snprintf() for this is overkill, we need to do the same length
+	check either way.
+	[8ea754871a54]
+
+	* lib/util/Makefile.in:
+	regen
+	[ab40def3376c]
+
+2022-09-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/digest_gcrypt.c:
+	Quiet libgcrypt run-time warning about not being initialized. Fixes
+	Debian bug #1019428 and Ubuntu bug #1397663.
+	[ebf9a6477d5d]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in, plugins/sudoers/audit.c,
+	plugins/sudoers/def_data.c, plugins/sudoers/def_data.h,
+	plugins/sudoers/def_data.in, plugins/sudoers/defaults.h,
+	plugins/sudoers/parse.c, plugins/sudoers/policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h:
+	Split log_{input,output} into log_{stdin,ttyin} and
+	log_{ttyout,stdout,stderr} If log_input is set, log_{stdin,ttyin}
+	will be set as well. If log_output is set,
+	log_{stdout,stderr,ttyout} will be set as well. This provides more
+	fine-grained control over I/O logging and makes it possible to
+	disable logging piped or redirected intput or output.
+	[5b7ea42ac63b]
+
+	* LICENSE.md, include/protobuf-c/protobuf-c.h,
+	lib/protobuf-c/protobuf-c.c:
+	Update to protobuf-c 1.4.1 We already had all the relevant fixes so
+	this is just cosmetic.
+	[aa51e48afe49]
+
+	* src/load_plugins.c:
+	new_container: no need to initialize container pointer in
+	declaration. From Li zeming.
+	[729a8a417d88]
+
+2022-09-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/policy.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/sudoers.h:
+	Use tcpgid if passed from sudo front-end and use it in
+	tty_present(). This can be used as another indicator that a terminal
+	is present without having to open /dev/tty.
+	[b804b8b7fc03]
+
+2022-09-13  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in,
+	docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in, docs/sudo.man.in,
+	docs/sudo.mdoc.in, docs/sudo_logsrv.proto.man.in,
+	docs/sudo_logsrv.proto.mdoc.in, docs/sudo_logsrvd.conf.man.in,
+	docs/sudo_logsrvd.conf.mdoc.in, docs/sudo_logsrvd.man.in,
+	docs/sudo_logsrvd.mdoc.in, docs/sudo_plugin.man.in,
+	docs/sudo_plugin.mdoc.in, docs/sudo_sendlog.man.in,
+	docs/sudo_sendlog.mdoc.in, docs/sudoers.ldap.man.in,
+	docs/sudoers.ldap.mdoc.in, docs/sudoers.man.in,
+	docs/sudoers.mdoc.in, docs/sudoers_timestamp.man.in,
+	docs/sudoers_timestamp.mdoc.in, docs/sudoreplay.man.in,
+	docs/sudoreplay.mdoc.in, docs/visudo.man.in, docs/visudo.mdoc.in:
+	Remove most uses of the deprecated Li macro which has no effect.
+	Also fix some other incorrect markup.
+	[8f94cc555092]
+
+2022-09-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Makefile.in, lib/eventlog/Makefile.in, lib/iolog/Makefile.in,
+	lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/python/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	Use $(GREP) and $(EGREP) variables in Makefile.in files.
+	[cf8d7fb45169]
+
+	* Merge pull request #177 from a1346054/fixes
+
+	Makefile.in: replace `egrep` and fix target name
+	[751aa03eb470]
+
+2022-09-12  a1346054  <36859588+a1346054@users.noreply.github.com>
+
+	* Makefile.in:
+	Fix incorrect makefile target name
+	[318288fb712f]
+
+	* Makefile.in:
+	Use `grep -E` instead of `egrep`
+	[4a2d9543643c]
+
+2022-09-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in:
+	Document apparmor_profile, intercept_verify, and update_ticket.
+	[d55caa1af788]
+
+	* docs/sudo_plugin_python.man.in, docs/sudo_plugin_python.mdoc.in:
+	Fix some of the markup to be more consistent with
+	sudo_plugin.mdoc.in. Also reword a few awkward phrases.
+	[8682c067c38b]
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in:
+	Use correct markup of function arguments and struct members. Also
+	remove most uses of the deprecated Li macro which has no effect.
+	[59b01b9ff183]
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in:
+	Move the init_session() errstr description to where it belongs.
+	[8c1e7cb23d1f]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Fix a typo
+	[591b75013070]
+
+2022-09-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/logging.c:
+	log_parse_error: make errstr const to quiet a -Wwrite-strings
+	warning
+	[9827a2a01316]
+
+	* config.h.in, configure.ac, include/sudo_compat.h,
+	include/sudo_debug.h, include/sudo_fatal.h, include/sudo_lbuf.h,
+	include/sudo_util.h, lib/eventlog/eventlog.c,
+	plugins/sudoers/check_aliases.c, plugins/sudoers/cvtsudoers.c,
+	plugins/sudoers/cvtsudoers.h, plugins/sudoers/defaults.c,
+	plugins/sudoers/logging.h, plugins/sudoers/sudoreplay.c,
+	plugins/sudoers/testsudoers.c, plugins/sudoers/toke.h,
+	plugins/sudoers/tsdump.c, plugins/sudoers/visudo.c,
+	src/parse_args.c, src/regress/noexec/check_noexec.c, src/sudo.h:
+	Move gcc-style __attribute__ macros to config.h.in Renamed __malloc
+	-> sudo_malloclike, __printflike -> sudo_printflike, __printf0like
+	-> sudo_printf0like. Add sudo_noreturn instead of
+	__attribute__((__noreturn__)). We do not use stdnoreturn.h since it
+	has been deprecated in C23 in favor of the [[noreturn]] attribute.
+	[ad3c04a1bbb0]
+
+	* plugins/sudoers/visudo.c:
+	Add __printf0like to visudo_track_error().
+	[7a118c40d360]
+
+2022-09-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/gram.y:
+	Back out unintended change in last commit.
+	[5d52c966212d]
+
+	* plugins/sudoers/gram.y, plugins/sudoers/logging.c,
+	plugins/sudoers/logging.h:
+	It is possibble for sudoerserrorf() to be called with a NULL format.
+	So log_parse_error() needs to check fmt for NULL before using it.
+	[5b779a6888c9]
+
+2022-09-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/UPGRADE.md:
+	Mention how to restore the historic core resource limit behavior.
+	[bfd792bd9d07]
+
+	* plugins/sudoers/audit.c:
+	Set MODE_POLICY_INTERCEPTED for log_subcmds too. This fixes a
+	problem where sub-commands were not being logged to the remote log
+	server, if configured. Since we don't go through
+	sudoers_policy_main() again for log_subcmds, we set the flag in
+	sudoers_audit_accept() instead. The reason this is complicated is
+	that when I/O logging is enabled the initial accept message gets
+	sent as part of the remote logging handshake. GitHub issue #174
+	[297fa6bbd769]
+
+2022-09-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS:
+	Update with latest changes.
+	[d7ca5db7adc7]
+
+	* docs/cvtsudoers.mdoc.in:
+	Fix typo.
+	[7629516758e2]
+
+	* plugins/sudoers/sudoers.c:
+	Only check the admin flag file once in intercept mode.
+	[c439914e08e1]
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in:
+	Document cvtsudoers CSV output format
+	[c5164466cae2]
+
+2022-08-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/cvtsudoers.man.in, docs/cvtsudoers.mdoc.in:
+	Document cvtsudoers JSON output format
+	[9fce227c2c61]
+
+2022-08-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	Zero out register struct before calling ptrace_getregs(). Quiets a
+	spurious valgrind warning.
+	[32f19e2e508f]
+
+2022-08-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	intercept_verify is fast, but the policy check is (relatively) slow.
+	[0a120a78bd37]
+
+	* src/exec_ptrace.c:
+	Realloc the buffer used to store argv and envp as needed. We now
+	store the vector immediately after the string table. It is possible
+	for argv and its contents to be invalidated by realloc() when
+	reading envp so we store the pointers as offsets until we are done
+	allocating.
+	[7620f3dceac4]
+
+2022-08-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	ptrace_verify_post_exec: use /proc/PID/cmdline and /proc/PID/environ
+	There is no reason to read these directly from the tracee when we
+	rely on /proc being mounted to access /proc/PID/exe.
+	[5da938210647]
+
+	* src/exec_ptrace.c:
+	Protect ptrace_readv_string() with #ifdef HAVE_PROCESS_VM_READV
+	[cc8e71c4c529]
+
+2022-08-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Rework the intercept section in "Preventing shell escapes".
+	[5e5b1ea90ce1]
+
+	* .github/workflows/codeql-analysis.yml:
+	Update CodeQL Action to v2 using current example config.
+	[d0aa8b4dda28]
+
+	* lib/util/arc4random.c:
+	Suppress PVS-Studio false positive.
+	[32fd02734378]
+
+	* src/exec_intercept.c:
+	intercept_check_policy_req: an empty argv[] is now supported
+	[a668708cc0a9]
+
+	* config.h.in, configure, configure.ac, src/exec_ptrace.c:
+	Use process_vm_readv(2) and process_vm_writev(2) if available. This
+	is faster than reading/writing from/to the remote process one word
+	at a time using PTRACE_PEEKDATA and PTRACE_POKEDATA.
+	[d0c5ed82738c]
+
+	* plugins/sudoers/check.c:
+	Skip all of check_user() for intercept unless intercept_authenticate
+	set. Previously we were calling the PAM approval modules even in
+	intercept mode which can take a lot of time. We may wish to make PAM
+	approval configurable in intercept mode in the future.
+	[e06fbc7e4ca6]
+
+	* plugins/sudoers/sudoers.c:
+	Only set MODE_POLICY_INTERCEPTED on subsequent policy checks. This
+	fixes a bug where MODE_POLICY_INTERCEPTED was set too early if the
+	intercept option was set globally in sudoers. It should only be set
+	after the original command has executed.
+	[8f5d47c2635a]
+
+2022-08-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	intercept_verify also compares the environment. Also mention the
+	overhead involved in checking things.
+	[44da04558285]
+
+2022-08-22  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	ptrace_getregs: make compat check more generic No need to use
+	different checks for mips and non-mips, the compiler will optimize
+	away the superfluous check.
+	[0f2ff0f3f388]
+
+	* src/preload.c:
+	Correct type of sudoers_audit. GitHub issue #61
+	[17a7806ad3ba]
+
+2022-08-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/sesh.c:
+	Fix shadowed variable warning.
+	[e200b6b5b4fd]
+
+2022-08-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.h:
+	Fix shadowed variable warning on aarch64.
+	[84169692bd1c]
+
+	* src/regress/intercept/test_ptrace.c:
+	Quiet another -Wwrite-strings warning.
+	[ff2860056976]
+
+	* src/exec_ptrace.c:
+	ptrace_getregs: try to determine compat mode if caller doesn't know.
+	In ptrace_verify_post_exec(), we don't know whether the executable
+	that is now running is a native or compat binary. In most cases
+	ptrace_getregs() will be able to figure it out for us.
+	[fb0fa29ff554]
+
+	* src/exec_ptrace.c:
+	ptrace_intercept_execve: fail syscall rather than killing process on
+	error. If the execve(2) args are bogus pointers, we should just
+	return an error instead of killing the process. For consistency with
+	the kernel, convert EIO from ptrace(2) to EFAULT. Also convert some
+	ptrace(2) warnings to debug printfs so sudo is less chatty.
+	[3d30c6d28005]
+
+2022-08-18  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	Treat argv and closure->run_argv of different sizes as a mismatch.
+	If argv and closure->run_argv match up to the point where we hit a
+	NULL but one of them has additional entries, we still need to
+	rewrite argv.
+	[91d522d9c3b6]
+
+	* src/exec_ptrace.c:
+	Handle the case where argc is 0 when allocating space for argv. We
+	need to pass the pathname to the policy plugin in argv[0] so we must
+	be sure to allocate space for it even if argc is 0.
+	[953f92c9e7a5]
+
+	* src/sudo_intercept.c:
+	copy_vector: treat a NULL pointer as an empty vector. Linux
+	execve(2) allows argv to be NULL so we must allocate an empty vector
+	in this case and not return an error.
+	[cf30608ed6cb]
+
+	* src/exec_preload.c:
+	Update debug_decl name for sudo_preload_dso ->
+	sudo_preload_dso_alloc change.
+	[b0db53a62c7a]
+
+	* src/exec_intercept.c:
+	Handle the case where argc is 0 when rebuilding argv. We need to
+	pass the pathname to the policy plugin in argv[0] so we must be sure
+	to allocate space for it even if argc is 0.
+	[10358fc408a1]
+
+	* src/exec_ptrace.c:
+	Handle sysconf(_SC_ARG_MAX) failure, Coverity CID 276504.
+	[ddb88da56bd7]
+
+	* plugins/sudoers/match_digest.c:
+	Avoid a Coverity false positive.
+	[dd9fd747bd7f]
+
+	* plugins/sudoers/getdate.c, plugins/sudoers/getdate.y:
+	Remove cast from time_t to int to avoid a Coverity false positive.
+	The cast should not be required.
+	[a305b10eb17e]
+
+2022-08-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/group_plugin.c:
+	Use multilib rules to look for a 64-bit group plugin on failure. If
+	sudo_dso_load() fails on a 64-bit system, try to load a 64-bit
+	native version of the file using system-dependent multilib rules. If
+	we don't support multilib on the platform, check for a version of
+	the file that ends in "64" before the .so suffix.
+	[d36bcc89ee34]
+
+	* docs/sudo_plugin.man.in:
+	regen
+	[c14c0882a07d]
+
+2022-08-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/env.c, src/env_hooks.c:
+	In putenv(3) replacement reject a string with no '=' or that starts
+	with one.
+	[59c6e6e5232b]
+
+2022-08-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* LICENSE.md:
+	Update copyright year for embedded zlib.
+	[2c52d016e583]
+
+2022-08-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Use our own arc4random() in preference to the glibc version. The
+	glibc arc4random() may fail in chroot on older kernels and exit.
+	[9b4a62c9f468]
+
+	* lib/util/sudo_dso.c:
+	sudo_dso_load: restore original error for AIX on failure. For AIX,
+	if dlopen() fails we try again with RTLD_MEMBER set and a default
+	member (shr.o or shr_64.o). However, if that also fails, the user
+	will receive a useless error message that doesn't correspond to the
+	actual problem. We now retry the original dlopen() if the fallback
+	to RTLD_MEMBER fails, which has the effect of restoring the original
+	error message.
+	[ec539996a4aa]
+
+2022-08-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #165 from bdrung/xdg-current-desktop
+
+	Add XDG_CURRENT_DESKTOP to initial_keepenv_table
+	[3d2e82e32ea8]
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.12.
+	[08c096ada8b2]
+
+	* docs/sudo_plugin.mdoc.in, include/sudo_plugin.h, plugins/python/regr
+	ess/testdata/check_multiple_approval_plugin_and_arguments.stdout,
+	src/exec.c:
+	Bump the sudo plugin minor version. The "update_ticket" entry was
+	added to the settings list and the "intercept_verify" entry was
+	added to the command_info list.
+	[3259f3199798]
+
+	* docs/sudo.man.in, docs/sudo.mdoc.in, plugins/sudoers/check.c,
+	plugins/sudoers/policy.c, plugins/sudoers/sudoers.h,
+	src/parse_args.c, src/sudo.c, src/sudo.h, src/sudo_usage.h.in:
+	Add a way to run a command without updating the cached credentials.
+	This can also be used to test for whether or not the user's
+	credentials are currently cached.
+	[f5825a6f881b]
+
+	* Merge pull request #168 from likunyur/lky
+
+	Remove unnecessary initialization and casts.
+	[fcb251c895ce]
+
+	* Merge pull request #169 from kempstonjoystick/main
+
+	Fix incorrect SHA384/512 digest calculation.
+	[f016c3a37255]
+
+2022-08-02  Tim Shearer  <timtimminz@gmail.com>
+
+	* lib/util/sha2.c:
+	Fix incorrect SHA384/512 digest calculation.
+
+	Resolves an issue where certain message sizes result in an incorrect
+	checksum. Specifically, when: (n*8) mod 1024 == 896 where n is the
+	file size in bytes.
+	[e9f235a8d432]
+
+2022-08-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec.c, src/selinux.c, src/sesh.c, src/sudo.c, src/sudo.h:
+	Defer chdir(2) until sesh when running with SELinux. We need to be
+	running with the correct security context or the chdir(2) may fail.
+	GitHub issue #160.
+	[a8713dd21be9]
+
+2022-08-01  Li zeming  <zeming@nfschina.com>
+
+	* lib/util/arc4random.c:
+	util/arc4random: (void*) type pointer passing address could remove
+	cast
+
+	Signed-off-by: Li zeming <zeming@nfschina.com>
+	[aa4e8c73f131]
+
+	* lib/iolog/hostcheck.c:
+	iolog/hostcheck: These two parameters do not need to be initialized
+	and assigned, the following code is directly assigned
+
+	Signed-off-by: Li zeming <zeming@nfschina.com>
+	[dd657435f277]
+
+2022-07-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #166 from c4rlo/patch-1
+
+	visudo.c: add nvim (Neovim) to lineno_editor list
+	[97e0a7b00daa]
+
+2022-07-31  Carlo Teubner  <435950+c4rlo@users.noreply.github.com>
+
+	* plugins/sudoers/visudo.c:
+	visudo.c: add nvim (Neovim) to lineno_editor list
+
+	Neovim supports it: https://neovim.io/doc/user/starting.html#-+
+	[020b59cf0f6b]
+
+2022-07-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Document the TOCTOU issue with intercept mode. Describe how
+	intercept_verify attempts to reduce the risk.
+	[b118de8d4c66]
+
+	* etc/codespell.exclude, etc/codespell.ignore:
+	Update a codespell exclude pattern.
+	[3193ffb4c938]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/def_data.c, plugins/sudoers/def_data.h,
+	plugins/sudoers/def_data.in, plugins/sudoers/defaults.c,
+	plugins/sudoers/policy.c, src/exec_ptrace.c, src/sudo.c, src/sudo.h:
+	Add intercept_verify sudoers option to control execve(2) argument
+	checking.
+	[79131cfb0125]
+
+	* src/exec_ptrace.c:
+	Use PTRACE_EVENT_EXEC to stop execution before return from
+	execve(2). We can now verify that the arguments match what we
+	accepted before the command actually runs. If there is a mismatch,
+	the process is killed. Shell scripts must be handled specially since
+	the path executed will be the interpreter, not the script name.
+	Linux allows interpreters to be nested up to 4 deep.
+	[5e7b1828dbb0]
+
+	* plugins/sudoers/sudoers.c:
+	Only set MODE_POLICY_INTERCEPTED if we are running a command. Fixes
+	an error with "sudo -l" when intercept is enabled globally.
+	[7a1d0ff5a498]
+
+2022-07-29  Benjamin Drung  <bdrung@ubuntu.com>
+
+	* plugins/sudoers/env.c:
+	Add XDG_CURRENT_DESKTOP to initial_keepenv_table
+
+	Qt needs `XDG_CURRENT_DESKTOP` to be set to determine the correct
+	theme.
+
+	Since `DISPLAY` and `XAUTHORITY` are already in the default table of
+	variables to preserve in the environment, just add
+	`XDG_CURRENT_DESKTOP` to it.
+
+	Bug: https://launchpad.net/bugs/1958055 Signed-off-by: Benjamin
+	Drung <bdrung@ubuntu.com>
+	[aa5132684c89]
+
+2022-07-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	The length returned by ptrace_read_string() include the NUL. We were
+	wasting a extra byte in the string table for each entry.
+	[b1220aae7141]
+
+2022-07-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_compat.h, include/sudo_util.h:
+	Use gcc's malloc attribute for malloc-like allocation functions.
+	[bff3b0ab89c5]
+
+	* lib/util/mmap_alloc.c:
+	Avoid a Coverity positive.
+	[81f526688296]
+
+	* src/exec_preload.c:
+	fmtstr: add missing va_end() for the overflow case Coverity CID
+	275335
+	[42a4f4467ca5]
+
+	* lib/util/sudo_debug.c:
+	Fix potential NULL pointer deference found by clang-analyzer.
+	[5b0a9c0f2e71]
+
+	* src/sudo.c, src/sudo_intercept_common.c:
+	Quiet some harmless PVS-Studio warnings.
+	[9b9cc92f0585]
+
+	* src/exec_intercept.c:
+	Reject relative command paths if runcwd is not set. This is now
+	treated as a policy rejection.
+	[bf35a6818c77]
+
+	* src/exec_intercept.c:
+	intercept_check_policy: close saved_dir before returning
+	[04adba5e85fa]
+
+	* src/exec_intercept.c:
+	Change to runcwd during the policy check where possible. Otherwise,
+	attempts to run "./command" from a shell with intercept set will
+	fail if the current working directory is different from the main
+	sudo process.
+	[cd218f081cf2]
+
+2022-07-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/sudo_util.h, lib/util/mmap_alloc.c, lib/util/util.exp.in,
+	src/sudo_intercept.c:
+	For preload DSO make copies of cmnd, argv, envp and map them read-
+	only.
+	[56a160c55e4c]
+
+	* src/exec_preload.c, src/sudo_exec.h, src/sudo_intercept.c,
+	src/sudo_intercept_common.c:
+	Use sudo_mmap_alloc functions in DSO-based intercept code.
+	[806dacd141ad]
+
+	* lib/util/snprintf.c:
+	Use sudo_mmap_alloc functions instead of private versions. We no
+	longer need to keep track of the allocation size.
+	[6f375ed7a927]
+
+	* MANIFEST, include/sudo_util.h, lib/util/Makefile.in,
+	lib/util/mmap_alloc.c, lib/util/util.exp.in:
+	Add sudo_mmap_{alloc,allocarrary,strdup,free} functions. These
+	allocate memory via mmap anonymous regions and store the mapped size
+	immediately before the returned pointer as an unsigned long. They
+	are intended to be used in cases where malloc(3) and free(3) are
+	unsuitable due to concerns about corrupting global state in multi-
+	threaded programs or signal handlers.
+	[803b4a82bedd]
+
+	* docs/sudoers.ldap.man.in, docs/sudoers.ldap.mdoc.in:
+	Sync with schema.OpenLDAP for user/group utf8 support.
+	[14705b52a4f9]
+
+	* Merge pull request #163 from Firstyear/20220725-sudo-ldap-schema
+
+	Update sudoUser to be utf8 in ldap schemas
+	[91354fc2ed23]
+
+	* src/sudo_intercept.c:
+	resolve_path: skip non-regular files
+	[2ed5efdb48ea]
+
+2022-07-25  William Brown  <wbrown@suse.de>
+
+	* docs/schema.OpenLDAP, docs/schema.iPlanet, docs/schema.olcSudo:
+	Update sudoUser to be utf8 in ldap schemas
+
+	In most unix-style LDAP servers, uid is a utf8 string defined by OID
+	1.3.6.1.4.1.1466.115.121.1.15. However, sudoUser was defined as an
+	IA5 String (OID 1.3.6.1.4.1.1466.115.121.1.26) which meant that
+	sudoUser could only represent a subset of possible values.
+
+	In some cases when using sudoers.ldap, the uid from the machine
+	which was utf8 was fed back into sudo which would then issue a
+	search for sudoUsers. If this uid contained utf8 characters, the
+	ldap server would refuse to match into sudoUsers because these were
+	limited to IA5.
+
+	This is a safe-forward upgrade as IA5 is a subset of UTF8 meaning
+	that this change will not impact existing deployments and their
+	rules.
+	[7a47e711ca88]
+
+2022-07-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_intercept.c, src/sudo.c:
+	Make sure the plugin provides a command, argv and envp.
+	[7e4e93118622]
+
+	* lib/util/sudo_debug.c, src/exec_intercept.c, src/exec_preload.c,
+	src/exec_ptrace.c, src/sudo_intercept.c,
+	src/sudo_intercept_common.c:
+	Linux execve(2) allows argv or envp to be NULL. Add checks to make
+	sure we don't deference a NULL pointer.
+	[be380b71df62]
+
+2022-07-13  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_intercept.c:
+	intercept_check_policy: add oom label and fix approval failure case.
+	If the approval plugin fails we need to set the state to
+	POLICY_REJECT just like we do if the policy rejected the command.
+	[e7ba37e32af7]
+
+2022-07-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/cvtsudoers_csv.c, plugins/sudoers/cvtsudoers_json.c,
+	plugins/sudoers/cvtsudoers_ldif.c,
+	plugins/sudoers/cvtsudoers_merge.c, plugins/sudoers/def_data.in,
+	plugins/sudoers/gram.c, plugins/sudoers/gram.y,
+	plugins/sudoers/parse.c, plugins/sudoers/parse.h,
+	plugins/sudoers/policy.c, src/apparmor.c:
+	Fix a few whitespace issues.
+	[deb6391a3ba0]
+
+	* plugins/sudoers/regress/fuzz/fuzz_policy.c:
+	Increase the realloc increment from 128 to 1024. The contents of the
+	env_add array should not include the leading "env=" prefix.
+	[d8c0067fc3fd]
+
+	* plugins/sudoers/env.c:
+	sudo_putenv_nodebug: require that the environment string include a
+	'='
+	[fb200f301070]
+
+2022-07-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/visudo.c:
+	If update_defaults() fails, treat it as a parse error.
+	[d9860eb2257a]
+
+	* plugins/sudoers/getdate.c, plugins/sudoers/getdate.y,
+	plugins/sudoers/gram.c, plugins/sudoers/gram.y,
+	plugins/sudoers/toke.c, plugins/sudoers/toke.l:
+	Add additional PVS-studio suppression comments for generated code.
+	[dfb89944dcce]
+
+2022-07-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/match_command.c:
+	Fix compilation error when SUDOERS_NAME_MATCH is defined.
+	[3b76707bc5fa]
+
+	* plugins/sudoers/match_command.c:
+	Fix a NOPASSWD issue with a non-existent command when fdexec=always
+	In command_matches_all(), if the command is fully-qualified and
+	open_cmnd() return false, only treat it as an error if we are able
+	to stat(2) the command. For "sudo ALL" a non-existent command is not
+	an error.
+	[e2d756137ce9]
+
+	* plugins/sudoers/regress/testsudoers/test18.sh:
+	Quote ^foo$ on command line to protect it from the shell.
+	[0f1274e0be93]
+
+2022-07-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/eventlog/regress/logwrap/check_wrap.c,
+	lib/util/regress/closefrom/closefrom_test.c,
+	lib/util/regress/fnmatch/fnm_test.c,
+	lib/util/regress/getgrouplist/getgrouplist_test.c,
+	lib/util/regress/glob/globtest.c,
+	lib/util/regress/parse_gids/parse_gids_test.c,
+	lib/util/regress/progname/progname_test.c,
+	lib/util/regress/strsig/strsig_test.c,
+	lib/util/regress/strsplit/strsplit_test.c,
+	lib/util/regress/strtofoo/strtobool_test.c,
+	lib/util/regress/strtofoo/strtoid_test.c,
+	lib/util/regress/strtofoo/strtomode_test.c,
+	lib/util/regress/strtofoo/strtonum_test.c,
+	lib/util/regress/sudo_conf/conf_test.c,
+	lib/util/regress/sudo_parseln/parseln_test.c,
+	lib/util/regress/tailq/hltq_test.c,
+	lib/util/regress/uuid/uuid_test.c,
+	logsrvd/regress/logsrvd_conf/logsrvd_conf_test.c,
+	plugins/python/regress/check_python_examples.c, src/exec_ptrace.c:
+	Add explicit include of unistd.h for getopt(3) and related
+	variables.
+	[e1c369cd5ae8]
+
+2022-07-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/cvtsudoers.c, src/sudo_intercept_common.c:
+	Merge pull request #161 from likunyur/lky
+
+	sudoers/cvtsudoers: Remove the repeated ';' from code
+	[9b961a3b9c86]
+
+2022-07-04  Li kunyu  <kunyu@nfschina.com>
+
+	* src/sudo_intercept_common.c:
+	src/send: Remove the repeated ';' from code
+
+	Signed-off-by: Li kunyu <kunyu@nfschina.com>
+	[6fc809eac0b1]
+
+	* plugins/sudoers/cvtsudoers.c:
+	sudoers/cvtsudoers: Remove the repeated ';' from code
+
+	Signed-off-by: Li kunyu <kunyu@nfschina.com>
+	[75582c880c30]
+
+2022-07-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/timegm.c:
+	In timegm() initialize tm_isdst to 0 like tzcode does.
+	[d3f2d10c3559]
+
+2022-06-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* include/intercept.pb-c.h, include/sudo_event.h,
+	src/exec_intercept.c, src/exec_intercept.h, src/intercept.pb-c.c,
+	src/intercept.proto, src/sudo_intercept_common.c:
+	Stop sending an InterceptResponse to a PolicyCheckRequest for
+	log_subcmds. There's no real reason for the command to wait for sudo
+	send back a response that will always be a PolicyAcceptMessage.
+	[d2fe28a652d0]
+
+	* plugins/sudoers/sudoers.c:
+	sudoers_main: defer setting return value until the end when running
+	a command Otherwise, we could return success when there was an error
+	from a system call or memory allocation failure.
+	[bd993a2948ce]
+
+	* plugins/sudoers/audit.c, plugins/sudoers/logging.c,
+	plugins/sudoers/logging.h, plugins/sudoers/sudoers.c,
+	plugins/sudoers/sudoers.h:
+	Save the initial command run via sudo and use it when logging exit
+	status. Otherwise, if we are in intercept mode or logging sub-
+	commands the exit status will be logged with the wrong command.
+	[54e3494473ac]
+
+2022-06-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/zlib/zconf.h.in:
+	Define _LARGEFILE64_SOURCE if _FILE_OFFSET_BITS == 64. Fixes a
+	-Wwrite-strings warning on 32-bit systems.
+	[61eff691496f]
+
+	* lib/util/strsignal.c:
+	Quiet another -Wwrite-strings warning.
+	[a03bb85d581d]
+
+	* lib/protobuf-c/protobuf-c.c:
+	Fix a clang analyzer 14 warning about a possible NULL deref.
+	[4c0db4ac3e1d]
+
+	* lib/iolog/Makefile.in, lib/logsrv/Makefile.in,
+	lib/protobuf-c/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	Regenerate dependencies
+	[ff7de2b59097]
+
+	* scripts/mkdep.pl:
+	Do not check files generated by protbuf-c with PVS-Studio
+	[86f56c21339f]
+
+	* logsrvd/logsrv_util.c, logsrvd/logsrvd.c, logsrvd/logsrvd_conf.c,
+	logsrvd/logsrvd_queue.c, logsrvd/sendlog.c, logsrvd/tls_client.c,
+	plugins/sudoers/log_client.c, src/sudo_intercept_common.c:
+	Quiet some harmless PVS Studio warnings.
+	[476fbef7a0c4]
+
+	* logsrvd/logsrvd_conf.c, logsrvd/sendlog.c:
+	Use "unable to allocate memory" warning on malloc failure. This is
+	consistent with the rest of the sudo source code.
+	[5954fc067647]
+
+	* lib/eventlog/Makefile.in, lib/fuzzstub/Makefile.in,
+	lib/iolog/Makefile.in, lib/iolog/host_port.c,
+	lib/logsrv/Makefile.in, lib/protobuf-c/Makefile.in,
+	lib/util/Makefile.in, lib/util/getentropy.c, lib/util/roundup.c,
+	logsrvd/iolog_writer.c, logsrvd/logsrv_util.c, logsrvd/logsrvd.c,
+	logsrvd/logsrvd_conf.c, logsrvd/logsrvd_journal.c,
+	logsrvd/logsrvd_local.c, logsrvd/logsrvd_queue.c,
+	logsrvd/logsrvd_relay.c, logsrvd/sendlog.c, logsrvd/tls_client.c,
+	logsrvd/tls_init.c, plugins/sudoers/log_client.c, src/Makefile.in,
+	src/apparmor.c:
+	Add missing PVS Studio Open Source comments. Also avoid checking
+	protobuf-c source and protobuf-c generated files.
+	[e1277c1f6585]
+
+	* lib/iolog/host_port.c, lib/iolog/hostcheck.c, lib/util/roundup.c,
+	logsrvd/iolog_writer.c, logsrvd/logsrv_util.c, logsrvd/logsrvd.c,
+	logsrvd/logsrvd.h, logsrvd/logsrvd_conf.c,
+	logsrvd/logsrvd_journal.c, logsrvd/logsrvd_local.c,
+	logsrvd/logsrvd_queue.c, logsrvd/logsrvd_relay.c, logsrvd/sendlog.c,
+	logsrvd/sendlog.h, logsrvd/tls_client.c, logsrvd/tls_common.h,
+	logsrvd/tls_init.c, plugins/python/pyhelpers.h,
+	plugins/python/regress/iohelpers.h, plugins/sudoers/log_client.c:
+	Use #include <config.h> not #include "config.h" for consistency.
+	Otherwise, some compilers may do the wrong thing in a build dir if
+	there is a config.h file in the source dir too.
+	[79aaab18dc6d]
+
+2022-06-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/group_plugin.c:
+	Update group_plugin_load() stub to match its prototype.
+	[9ea7126e6d5c]
+
+	* configure, configure.ac, include/sudo_iolog.h,
+	lib/eventlog/eventlog.c, lib/eventlog/logwrap.c,
+	lib/iolog/host_port.c, lib/iolog/regress/host_port/host_port_test.c,
+	lib/iolog/regress/iolog_mkpath/check_iolog_mkpath.c, lib/util/aix.c,
+	lib/util/getgrouplist.c, lib/util/getopt_long.c, lib/util/lbuf.c,
+	lib/util/logfac.c, lib/util/logpri.c,
+	lib/util/regress/progname/progname_test.c, lib/util/snprintf.c,
+	lib/util/sudo_conf.c, lib/util/sudo_debug.c, logsrvd/logsrvd_conf.c,
+	logsrvd/logsrvd_local.c, logsrvd/logsrvd_relay.c, logsrvd/sendlog.c,
+	plugins/audit_json/audit_json.c,
+	plugins/python/python_convmessage.c,
+	plugins/python/python_plugin_common.c,
+	plugins/python/regress/check_python_examples.c,
+	plugins/python/sudo_python_module.c, plugins/sudoers/auth/bsdauth.c,
+	plugins/sudoers/auth/pam.c, plugins/sudoers/auth/sudo_auth.h,
+	plugins/sudoers/cvtsudoers.c, plugins/sudoers/cvtsudoers_csv.c,
+	plugins/sudoers/cvtsudoers_json.c,
+	plugins/sudoers/cvtsudoers_ldif.c,
+	plugins/sudoers/cvtsudoers_pwutil.c, plugins/sudoers/defaults.c,
+	plugins/sudoers/defaults.h, plugins/sudoers/editor.c,
+	plugins/sudoers/env.c, plugins/sudoers/exptilde.c,
+	plugins/sudoers/getdate.c, plugins/sudoers/getdate.y,
+	plugins/sudoers/gram.c, plugins/sudoers/gram.h,
+	plugins/sudoers/gram.y, plugins/sudoers/group_plugin.c,
+	plugins/sudoers/insults.h, plugins/sudoers/iolog.c,
+	plugins/sudoers/ldap.c, plugins/sudoers/ldap_conf.c,
+	plugins/sudoers/log_client.c, plugins/sudoers/logging.c,
+	plugins/sudoers/parse.c, plugins/sudoers/policy.c,
+	plugins/sudoers/pwutil.c,
+	plugins/sudoers/regress/editor/check_editor.c,
+	plugins/sudoers/regress/exptilde/check_exptilde.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/regress/iolog_plugin/check_iolog_plugin.c,
+	plugins/sudoers/regress/parser/check_gentime.c,
+	plugins/sudoers/regress/serialize_list/check_serialize_list.c,
+	plugins/sudoers/regress/unescape/check_unesc.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	plugins/sudoers/sudoers_hooks.c, plugins/sudoers/sudoreplay.c,
+	plugins/sudoers/testsudoers.c, plugins/sudoers/visudo.c,
+	src/edit_open.c, src/exec_common.c, src/parse_args.c,
+	src/regress/noexec/check_noexec.c, src/selinux.c, src/sudo.c,
+	src/sudo_edit.c, src/sudo_intercept.c:
+	Make sudo pass -Wwrite-strings
+	[7ac3dd7b1634]
+
+	* configure, configure.ac:
+	A typo prevented -Wno-deprecated-declarations from being used on
+	macOS.
+	[4d6d4b9e7191]
+
+2022-06-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/preload.c:
+	Fix missing prototype warning.
+	[66e460d3c1d2]
+
+	* lib/zlib/zconf.h.in:
+	Define _LFS64_LARGEFILE, _LARGEFILE64_SOURCE if 64-bit or
+	_LARGE_FILES set. autoconf does not define _LARGEFILE64_SOURCE by
+	default but zlib expects it (its own configure script will define
+	it). Fixes a missing prototype for crc32_combine_gen64() on AIX and
+	HP-UX.
+	[c5b314bebbcb]
+
+	* configure, configure.ac, include/sudo_iolog.h, include/sudo_util.h,
+	lib/iolog/host_port.c, lib/iolog/regress/fuzz/fuzz_iolog_json.c,
+	lib/iolog/regress/fuzz/fuzz_iolog_legacy.c,
+	lib/iolog/regress/fuzz/fuzz_iolog_timing.c,
+	lib/iolog/regress/iolog_json/check_iolog_json.c,
+	lib/iolog/regress/iolog_timing/check_iolog_timing.c,
+	lib/util/regress/fuzz/fuzz_sudo_conf.c,
+	lib/util/regress/glob/globtest.c,
+	lib/util/regress/mktemp/mktemp_test.c, lib/util/strtoid.c,
+	logsrvd/logsrvd.c, logsrvd/logsrvd_relay.c,
+	logsrvd/regress/fuzz/fuzz_logsrvd_conf.c, logsrvd/sendlog.c,
+	plugins/python/pyhelpers.c, plugins/python/python_plugin_approval.c,
+	plugins/python/python_plugin_approval_multi.inc,
+	plugins/python/python_plugin_audit.c,
+	plugins/python/python_plugin_audit_multi.inc,
+	plugins/python/python_plugin_common.c,
+	plugins/python/python_plugin_group.c,
+	plugins/python/python_plugin_io.c,
+	plugins/python/python_plugin_io_multi.inc,
+	plugins/python/python_plugin_policy.c,
+	plugins/python/regress/check_python_examples.c,
+	plugins/python/sudo_python_module.c, plugins/sudoers/audit.c,
+	plugins/sudoers/getdate.c, plugins/sudoers/getdate.y,
+	plugins/sudoers/gram.c, plugins/sudoers/gram.y,
+	plugins/sudoers/iolog.c, plugins/sudoers/log_client.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_stubs.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers_ldif.c,
+	plugins/sudoers/regress/iolog_plugin/check_iolog_plugin.c,
+	plugins/sudoers/stubs.c, plugins/sudoers/timestamp.c,
+	plugins/sudoers/timestr.c, plugins/sudoers/tsgetgrpw.h,
+	plugins/sudoers/unesc_str.c, src/copy_file.c, src/exec_ptrace.c,
+	src/load_plugins.c, src/net_ifs.c, src/sudo.h, src/sudo_intercept.c,
+	src/sudo_intercept_common.c, src/sudo_noexec.c:
+	Make sudo pass -Wmissing-prototypes
+	[195b024b9f54]
+
+	* src/exec_ptrace.c:
+	Include inttypes.h if stdint.h is not present. Bug #1035
+	[da6185c4c418]
+
+2022-06-21  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	readlink(2) does NUL-terminate the buffer, do it manually. Fixes a
+	bug where the current working directory could include garbage in
+	intercept mode using ptrace(2).
+	[dc7c547f518f]
+
+	* src/exec_preload.c, src/sudo_exec.h, src/sudo_intercept_common.c:
+	sudo_preload_dso: make the envp function argument const This lets us
+	fix an inappropriate cast in sudo_intercept_common.c.
+	[c2fa860b684e]
+
+	* src/exec_intercept.c:
+	intercept_write: remove unused CD_USE_PTRACE code. It is not
+	possible to end up in intercept_write when CD_USE_PTRACE is set.
+	[f8bdc5e37294]
+
+2022-06-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_11p3 for changeset 6e671475b373
+	[59e5766213e9] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Merge sudo 1.9.11p3 from tip.
+	[6e671475b373] [SUDO_1_9_11p3] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.11p3
+	[c96ded63ae46]
+
+	* src/exec_intercept.c, src/sudo_intercept_common.c:
+	Set TCP_NODELAY on the socket used for intercept IPC to reduce
+	latency. On some systems, Nagle's algorithm was delaying receipt of
+	the data, causing commands with intercept or log_subcmds to run
+	slowly. Related to Bug #1034.
+	[11b129850ac1]
+
+	* src/sudo_intercept_common.c:
+	Use blocking I/O when talking to the sudo process. Also check for
+	EAGAIN/EINTR when reading the message size. Fixes a problem seen on
+	AIX where recv_intercept_response() could fail unexpectedly. Bug
+	#1034.
+	[8554618665a2]
+
+	* src/exec_intercept.c:
+	Add debug printfs when send/recv return EAGAIN or EINTR. These are
+	not actually errors but can help gain insight into what is going on
+	and, in the case of EAGAIN, whether or not there may be a kernel
+	resource starvation problem.
+	[fd2dee906d2f]
+
+2022-06-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/logging.c:
+	log_exit_status: make local variables match struct evlog members.
+	[f93d5141e818]
+
+2022-06-13  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/getgrouplist.c:
+	Quiet a compiler warning on macOS. The getgrouplist() groups array
+	on macOS is int * instead of gid_t *.
+	[c64bf72a1416]
+
+2022-06-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_11p2 for changeset 9e4705cb1db5
+	[2a4b6b814432] <1.9>
+
+	* NEWS, configure, configure.ac, include/sudo_compat.h:
+	Merge sudo 1.9.11p2 from tip.
+	[9e4705cb1db5] [SUDO_1_9_11p2] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.11p2
+	[9505276e5c97]
+
+2022-06-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.h:
+	Fix compilation on Linux/x32; GitHub issue #158
+	[8cebfdd49205]
+
+2022-06-10  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/policy.c:
+	Fix pasto in comment after HAVE_PRIV_SET #endif
+	[2275ab3b016d]
+
+	* include/sudo_compat.h:
+	Fix typo, we should define SSIZE_MAX if it is not defined.
+	[51c68f801479]
+
+2022-06-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/env.c:
+	Change black list -> blocklist This was missed in the previous
+	conversion.
+	[da610ebb5cb1]
+
+	* plugins/sudoers/audit.c, plugins/sudoers/iolog.c,
+	plugins/sudoers/log_client.c, plugins/sudoers/log_client.h,
+	plugins/sudoers/logging.c, plugins/sudoers/logging.h,
+	plugins/sudoers/policy.c,
+	plugins/sudoers/regress/iolog_plugin/check_iolog_plugin.c,
+	plugins/sudoers/sudoers.h:
+	Save a pointer to the event_alloc parameter in the plugin open
+	function. That way we don't need to pass event_alloc around to the
+	log client functions.
+	[a8a47f3770b3]
+
+	* lib/protobuf-c/protobuf-c.c:
+	Fix regression with zero-length messages introduced in protobuf-c PR
+	500.
+	[42062b9f75d5]
+
+2022-06-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .hgtags:
+	Added tag SUDO_1_9_11p1 for changeset 06b0f12fe91c
+	[feb8ae553833] <1.9>
+
+	* NEWS, config.h.in, configure, configure.ac:
+	Merge sudo 1.9.11p1 from tip.
+	[06b0f12fe91c] [SUDO_1_9_11p1] <1.9>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.11p1
+	[7fcfdaacb15e]
+
+2022-06-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_pty.c:
+	Make read and write events persistent and disable as needed. For the
+	read callback, disable reader when the buffer is full. For the write
+	callback, disable writer when the buffer is consumed.
+	[2b6953dc4224]
+
+	* config.h.in, configure, configure.ac, src/sudo_exec.h,
+	src/sudo_noexec.c:
+	Check for SECCOMP_MODE_FILTER not SECCOMP_SET_MODE_FILTER. This
+	matches the actual prctl() call we use.
+	[4222768293d1]
+
+	* Merge pull request #157 from 0x2b3bfa0/improve-tag-spec-ebnf-docs
+
+	Improve Tag_Spec EBNF documentation
+	[f528335aded5]
+
+	* logsrvd/logsrvd.c, logsrvd/logsrvd_relay.c, logsrvd/sendlog.c:
+	Treat EINTR in a callback like we do EAGAIN. We shouldn't get EINTR
+	in practice since we set SA_RESTART when registering signal handlers
+	but it doesn't hurt to be consistent.
+	[acf3394e2df2]
+
+	* Merge pull request #156 from delroth/aarch64-build
+
+	exec_ptrace: fix missing sudo_pt_regs on aarch64
+	[a7062c609a96]
+
+2022-06-07  Pierre Bourdon  <delroth@gmail.com>
+
+	* src/exec_ptrace.h:
+	exec_ptrace: fix missing sudo_pt_regs on aarch64
+
+	AArch64 already had an existing "user_pt_regs" struct and didn't
+	need a struct alias before the renaming to "sudo_pt_regs". Make the
+	code build again by adding the now missing alias.
+
+	Fixes: 2eb8ff17
+	[3b55f40e9b83]
+
+2022-06-07  Helio Machado  <0x2b3bfa0+git@googlemail.com>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Improve Tag_Spec EBNF documentation
+	[7e23ec31d124]
+
+2022-06-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* Merge pull request #154 from 0x2b3bfa0/fix-tag-spec-docs
+
+	Add missing colon in Tag_Spec documentation
+	[ec8f4610b677]
+
+	* Merge pull request #152 from particleflux/fix-sudoers-typo
+
+	Fix typo in sudoers comment
+	[bbbcff4c14ba]
+
+2022-06-07  Helio Machado  <0x2b3bfa0+git@googlemail.com>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Add missing colon in Tag_Spec documentation
+	[e6f4c612e22a]
+
+2022-06-07  Stefan Linke  <particleflux@gmail.com>
+
+	* plugins/sudoers/sudoers.in:
+	Fix typo in sudoers comment
+
+	Fix a typo in the sudoers comment about `maxseq` param.
+
+	Introduced by 906eb19ece47023c659b4b3db2e7a6bb57dff0d9 in 1.9.11.
+	[b38fae41b3eb]
+
+2022-06-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/protobuf-c/protobuf-c.c:
+	Only shift unsigned values to avoid implementation-specific
+	behavior. This converts the arithmetic shifts to logical shifts.
+	[e25aa8e9891a]
+
+	* lib/protobuf-c/protobuf-c.c:
+	Fix issue protobuf-c#499: unsigned integer overflow Signed-off-by:
+	10054172 <hui.zhang@thalesgroup.com>
+	[f3637be4df4f]
+
+	* include/sudo_event.h, lib/util/event_select.c:
+	Fix building with select (not poll) when fd_set is not defined in
+	sys/types.h. We can use a void * for the fd_set arrays and just add
+	a cast when using the FD_SET macros.
+	[5c636cbc11f0]
+
+	* src/exec_pty.c:
+	Reinstall the event handler if we get EAGAIN from read/write
+	callback. The read and write events do not set SUDO_EV_PERSIST so we
+	need to explicitly re-enable the event if there is still data to be
+	read. Bug #963.
+	[0006cb6531f4]
+
+	* logsrvd/logsrvd.c, logsrvd/logsrvd_relay.c, logsrvd/sendlog.c:
+	If write(2) returns EAGAIN just re-enter the event loop. This is
+	consistent with how we handle EAGAIN for read(2).
+	[e6478d917a0f]
+
+	* .hgtags:
+	Added tag SUDO_1_9_11 for changeset d495c99554f7
+	[74c59bc5c323] <1.9>
+
+	* NEWS, config.h.in, configure, configure.ac, include/sudo_compat.h,
+	logsrvd/tls_init.c, plugins/sudoers/regress/fuzz/fuzz_policy.c:
+	Merge sudo 1.9.11 from tip.
+	[d495c99554f7] [SUDO_1_9_11] <1.9>
+
+	* docs/sudo_plugin_python.man.in, docs/sudo_plugin_python.mdoc.in:
+	Document how setting ModulePath affects the Python search path. Also
+	advise the user to use a unique prefix to avoid name space
+	collisions with installed Python modules. Bug #1031.
+	[68a9d50d7806]
+
+	* configure, configure.ac, docs/sudo_plugin_python.man.in,
+	docs/sudo_plugin_python.mdoc.in:
+	Add EXAMPLES variables for use in the man pages for the examples
+	directory.
+	[148272d9a6d3]
+
+2022-06-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/po/cs.mo, plugins/sudoers/po/cs.po:
+	Updated translations from translationproject.org
+	[985902730e5b]
+
+	* plugins/sudoers/po/hr.mo, po/hr.mo:
+	Rebuild Croatian message catalog.
+	[438136f65c13]
+
+2022-06-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* .gitignore, .hgignore:
+	Add new test binaries to the ignore files.
+	[ea9de2ded48d]
+
+	* po/cs.mo, po/cs.po:
+	Updated translations from translationproject.org
+	[eac0aba546ed]
+
+	* lib/protobuf-c/protobuf-c.c:
+	Define WORDS_BIGENDIAN on big endian systems. Instead of a configure
+	check, we use endian.h (or a fallback).
+	[4d5603a9528c]
+
+	* include/intercept.pb-c.h, include/log_server.pb-c.h,
+	include/protobuf-c/protobuf-c.h, lib/protobuf-c/protobuf-c.c,
+	scripts/unanon:
+	Update to protobuf-c 1.4.0
+	[47ff9b8bab21]
+
+	* logsrvd/logsrvd.c, plugins/sudoers/cvtsudoers_csv.c:
+	Quiet two clang analyzer false positives.
+	[2c878f7853cc]
+
+	* src/exec_intercept.c:
+	Move a comment to the correct location.
+	[caacb3fae078]
+
+	* logsrvd/logsrvd.c:
+	union sockaddr_union: pass in sockaddr_union * instead of sockaddr
+	*. This eliminates the need for a few casts and is consistent with
+	how create_listener() is written.
+	[4def05f8d895]
+
+	* src/exec_ptrace.c:
+	Eliminate some dead stores that clang-analyzer complains about.
+	[3aac29fe0101]
+
+	* src/exec_ptrace.c:
+	ptrace_read_vec: don't try to free memory on the error path This is
+	leftover from when ptrace_read_string() allocated its own memory.
+	[7f5b5d21bce9]
+
+	* config.h.in, configure, configure.ac, src/sudo_intercept.c:
+	Avoid using vfork(2) in the DSO system(3) wrapper. Traditional
+	vfork(2) semantics make it unsafe for use for more than just
+	vfork(2) + execve(2).
+	[9a8ce7aef55d]
+
+2022-06-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* po/vi.mo, po/vi.po:
+	Updated translations from translationproject.org
+	[e3197ef8a98d]
+
+	* NEWS:
+	Mention sudo_logsrvd.conf "log_server" parsing fix.
+	[575a31b83bfd]
+
+	* MANIFEST, logsrvd/Makefile.in,
+	logsrvd/regress/logsrvd_conf/sudo_logsrvd.conf.1.in,
+	logsrvd/regress/logsrvd_conf/sudo_logsrvd.conf.2.in,
+	logsrvd/regress/logsrvd_conf/tls/sudo_logsrvd.conf.1.in,
+	logsrvd/regress/logsrvd_conf/tls/sudo_logsrvd.conf.2.in:
+	For logsrvd_conf_test include both tls and non-tls configs.
+	[ec1815793aab]
+
+	* MANIFEST, logsrvd/Makefile.in,
+	logsrvd/regress/logsrvd_conf/cacert.pem,
+	logsrvd/regress/logsrvd_conf/logsrvd_cert.pem,
+	logsrvd/regress/logsrvd_conf/logsrvd_conf_test.c,
+	logsrvd/regress/logsrvd_conf/logsrvd_dhparams.pem,
+	logsrvd/regress/logsrvd_conf/logsrvd_key.pem,
+	logsrvd/regress/logsrvd_conf/sudo_logsrvd.conf.1.in,
+	logsrvd/regress/logsrvd_conf/sudo_logsrvd.conf.2.in:
+	Add a simple regression test for logsrvd.conf parser. Unlike the
+	parser fuzzer, this includes sample certs and keys. This test would
+	have detected the BIO_new_file() bug in set_dhparams().
+	[7ddabb9d022f]
+
+	* logsrvd/logsrvd_conf.c:
+	Fix inverted logic when setting server_log. A value that starts with
+	a '/' should be treated as a path.
+	[8941fd924fbf]
+
+	* plugins/audit_json/Makefile.in, plugins/sample_approval/Makefile.in:
+	Use abs_top_builddir instead of `pwd`/$(top_builddir).
+	[0f4e20a7aeed]
+
+2022-06-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/regress/parse_gids/parse_gids_test.c:
+	Plug a memory leak.
+	[8a9eb498ed55]
+
+	* plugins/sudoers/parse_ldif.c:
+	Fix bug in last commit, need to reinitialize role to NULL.
+	[1e454b967993]
+
+	* plugins/sudoers/parse_ldif.c:
+	Simplify the check for when we can reuse the previous user and host
+	specs. This makes the code easier to read and quiets a cppcheck
+	false positive.
+	[037c4943f1ac]
+
+	* docs/Makefile.in:
+	Install the plugin man pages in section 5 (or 4 for System V). The
+	manual had the correct section in the text but was installed in the
+	wrong directory.
+	[5df7d3f9a010]
+
+	* plugins/sudoers/po/de.mo, plugins/sudoers/po/de.po,
+	plugins/sudoers/po/eo.mo, plugins/sudoers/po/eo.po,
+	plugins/sudoers/po/fr.mo, plugins/sudoers/po/fr.po,
+	plugins/sudoers/po/hr.mo, plugins/sudoers/po/hr.po,
+	plugins/sudoers/po/ko.mo, plugins/sudoers/po/ko.po,
+	plugins/sudoers/po/pl.mo, plugins/sudoers/po/pl.po,
+	plugins/sudoers/po/ro.mo, plugins/sudoers/po/ro.po,
+	plugins/sudoers/po/uk.mo, plugins/sudoers/po/uk.po, po/de.mo,
+	po/de.po, po/eo.mo, po/eo.po, po/fr.mo, po/fr.po, po/hr.mo,
+	po/hr.po, po/ko.mo, po/ko.po, po/pl.mo, po/pl.po, po/ro.mo,
+	po/ro.po, po/uk.mo, po/uk.po:
+	Updated translations from translationproject.org
+	[9ac84e5c9250]
+
+	* NEWS:
+	Sudo now supports intercepting system(3).
+	[a46db96a3b03]
+
+2022-05-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/log_client.c:
+	Only display "unable to connect to log server" warning once.
+	Previously, in intercept mode, if the log server is unreachable the
+	message would be printed for each sub-command.
+	[df4c53518bb7]
+
+	* src/exec.c, src/exec_monitor.c, src/exec_nopty.c, src/sudo_exec.h:
+	When using ptrace(2), push the point where we suspend into
+	exec_cmnd(). This should reduce the amount of time the child has to
+	wait for the parent to use PTRACE_SEIZE to seize control and then
+	PTRACE_CONT to continue the child.
+	[f9caab4bf18b]
+
+	* config.h.in, configure, configure.ac, src/sudo_intercept.c:
+	Add configure check for vfork(2) and fall back to fork(2) if
+	missing.
+	[ddfaba8d2a09]
+
+	* docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in, docs/sudoers.man.in,
+	docs/sudoers.mdoc.in, src/intercept.exp.in, src/sudo_intercept.c:
+	Add support for intercepting the system(3) function. This also means
+	we can log system(3) with log_subcmds.
+	[aca241d96c0b]
+
+	* include/compat/endian.h:
+	Newer compilers define __BYTE_ORDER__ and
+	__ORDER_{BIG,LITTLE}_ENDIAN__ Also add riscv the little endian list.
+	[55731e5517fc]
+
+2022-05-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	On AIX, fmemopen(3) has a bug where feof() returns false at EOF. See
+	https://www.ibm.com/support/pages/apar/IJ11845
+	[a703278bceed]
+
+2022-05-27  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/defaults.c:
+	Fix potential signed integer overflow on 32-bit CPUs. Converting
+	fractional minutes to nanoseconds could overflow a 32-bit integer,
+	use long long instead.
+	[b1d2afc0cc4d]
+
+	* plugins/sudoers/Makefile.in:
+	Fix path to example sudoers file, it is now in the build dir.
+	[899850a04adf]
+
+	* plugins/sudoers/gram.c, plugins/sudoers/gram.y:
+	init_options: initialize apparmor_profile to NULL
+	[ad0de9e0474f]
+
+	* NEWS:
+	Update with latest 1.9.11 changes.
+	[12650d2b6184]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Fix typo
+	[ce83f628330c]
+
+	* docs/CONTRIBUTORS.md:
+	Update contributors.
+	[5b69f27ea398]
+
+	* logsrvd/tls_init.c:
+	Fix uninitialized use of ca_store when building with wolfSSL.
+	[e7cc6d8d9f7e]
+
+	* docker/debian/testing/Dockerfile, docker/ubuntu/devel/Dockerfile,
+	docker/ubuntu/latest/Dockerfile, docker/ubuntu/rolling/Dockerfile:
+	Newer Debian/Ubuntu uses libsepol-dev not libsepol1-dev.
+	[b2c1326bfb0d]
+
+	* configure, configure.ac, plugins/sudoers/def_data.h,
+	plugins/sudoers/gram.c, plugins/sudoers/gram.h,
+	plugins/sudoers/toke.c, src/Makefile.in:
+	Regenerate files after merging AppArmor integration.
+	[d24fcec2cb87]
+
+	* Merge pull request #148 from kernelmethod/apparmor_support
+
+	Add AppArmor support to sudo
+	[fcbfb2410afd]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/def_data.c, plugins/sudoers/def_data.h,
+	plugins/sudoers/def_data.in, plugins/sudoers/policy.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	src/parse_args.c, src/sudo.c, src/sudo.h:
+	Merge branch 'main' into apparmor_support
+	[7832ecc5eb7f]
+
+2022-05-26  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/sudo_intercept.c:
+	Pass envp, not environ, to real execve() from exec_wrapper() if
+	possible. The replacement execve() function was passing the global
+	environ to exec_wrapper() instead of the envp parameter. This caused
+	the command to be run with the wrong environment on AIX systems, and
+	possibly others, when intercept or log_subcmds was enabled. Bug
+	#1030.
+	[dc0187c68c1b]
+
+	* plugins/sudoers/po/sudoers.pot, po/sudo.pot:
+	Update .pot files for 1.9.11
+	[b4c8ec57842f]
+
+	* src/exec_ptrace.c:
+	Consolidate some translatable strings.
+	[05dae7c3c8da]
+
+	* logsrvd/logsrvd.c, logsrvd/logsrvd_journal.c,
+	logsrvd/logsrvd_relay.c, logsrvd/sendlog.c,
+	plugins/sudoers/log_client.c, src/exec_intercept.c:
+	Standardize protobuf "unable to unpack" warning messages.
+	[6f4e026c7a02]
+
+	* docs/sudo_plugin.man.in, docs/sudo_plugin.mdoc.in,
+	include/sudo_plugin.h, plugins/python/regress/testdata/check_multipl
+	e_approval_plugin_and_arguments.stdout, src/exec.c:
+	Bump plugin minor version and document new intercept-related
+	settings. There should have been a minor version bump for sudo 1.9.8
+	when intercept was originally implemented.
+	[2b7591704df4]
+
+2022-05-25  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/policy.c, plugins/sudoers/sudoers.c,
+	plugins/sudoers/sudoers.h:
+	Reset intercept_allow_setid if intercept_type changes from trace to
+	dso. But only reset intercept_allow_setid if the user didn't
+	explicitly set it.
+	[e398111d824e]
+
+2022-05-24  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* etc/sudo-logsrvd.pp, etc/sudo-python.pp, etc/sudo.pp:
+	CentOS Stream only uses a major version number, no minor version.
+	This prevents the packages from being created as foo.el.arch.rpm
+	since we were assuming that the version number was two digits.
+	[a3caed91ea8c]
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	Add support for running o32 and n32 binaries on mips64.
+	[887ab363f2a4]
+
+	* src/exec_ptrace.c, src/exec_ptrace.h, src/sudo_exec.h:
+	Enable ptrace support for MIPS but only for log_subcmds. It is not
+	possible to change the syscall return value on MIPS so we cannot
+	support full intercept mode. Another complication on MIPS is that if
+	a system call is invoked via syscall(__NR_###), v0 holds
+	__NR_O32_Linux and the real syscall is in the first arg (a0) and
+	other args are shifted by one.
+	[0345a4137047]
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/def_data.c, plugins/sudoers/def_data.h,
+	plugins/sudoers/def_data.in, plugins/sudoers/defaults.c,
+	plugins/sudoers/policy.c, plugins/sudoers/sudoers.h,
+	src/exec_ptrace.c, src/parse_args.c, src/sudo.c, src/sudo.h,
+	src/sudo_exec.h:
+	Add intercept_type sudoers option to set intercept/log_subcmds
+	mechanism.
+	[b97e461f7da1]
+
+2022-05-23  kernelmethod  <wss2ec@virginia.edu>
+
+	* MANIFEST, include/sudo_debug.h, src/Makefile.in, src/apparmor.c,
+	src/parse_args.c, src/sudo.c, src/sudo.h:
+	Add an apparmor_profile sudo setting
+
+	Define a new sudo setting, `apparmor_profile`, that can be used to
+	pass in an AppArmor profile that should be used to confine commands.
+	If apparmor_profile is specified, sudo will execute the command
+	using the new `apparmor_execve` function, which confines the command
+	under the provided profile before exec'ing it.
+	[a54897efe031]
+
+	* plugins/sudoers/check.c, plugins/sudoers/cvtsudoers_csv.c,
+	plugins/sudoers/cvtsudoers_json.c,
+	plugins/sudoers/cvtsudoers_ldif.c,
+	plugins/sudoers/cvtsudoers_merge.c, plugins/sudoers/def_data.c,
+	plugins/sudoers/def_data.h, plugins/sudoers/def_data.in,
+	plugins/sudoers/fmtsudoers.c, plugins/sudoers/gram.y,
+	plugins/sudoers/parse.c, plugins/sudoers/parse.h,
+	plugins/sudoers/policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.dict,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.dict,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	plugins/sudoers/toke.l:
+	Add an APPARMOR_PROFILE user spec option to sudoers
+
+	sudoers now supports an APPARMOR_PROFILE option, which can be
+	specified as e.g.
+
+	 alice ALL=(ALL:ALL) APPARMOR_PROFILE=foo ALL
+
+	The line above says "user alice can run any command as any
+	user/group, under confinement by the AppArmor profile 'foo'."
+	Profiles can be specified in any way that complies with the rules of
+	aa_change_profile(2). For instance, the sudoers configuration
+
+	 alice ALL=(ALL:ALL) APPARMOR_PROFILE=unconfined ALL
+
+	allows alice to run any command unconfined (i.e., without an
+	AppArmor profile), while
+
+	 alice ALL=(ALL:ALL) APPARMOR_PROFILE=foo//&bar ALL
+
+	tells sudoers that alice can run any command under the stacked
+	AppArmor profiles 'foo' and 'bar'.
+
+	The intention of this option is to give sysadmins on Linux distros
+	supporting AppArmor better options for fine-grained access control.
+	Among other things, this option can enforce mandatory access control
+	(MAC) over the operations that a privileged user is able to perform
+	to ensure that they cannot privesc past the boundaries of a
+	specified profile. It can also be used to limit which users are able
+	to get unconfined system access, by enforcing a default AppArmor
+	profile on all users and then specifying
+	'APPARMOR_PROFILE=unconfined' for a privileged subset of users.
+	[2afe8c910959]
+
+	* config.h.in, configure.ac, scripts/mkdep.pl, scripts/mkpkg:
+	Add a --with-apparmor build flag
+
+	Add a new build flag, --with-apparmor, that builds sudo with
+	AppArmor support. Modify the build script for Debian and Ubuntu to
+	enable this flag by default.
+	[596b4e6dce4d]
+
+	* INSTALL.md, docs/sudoers.man.in, docs/sudoers.mdoc.in:
+	Add documentation for AppArmor support
+
+	- Document the AppArmor userspec option in the sudoers man pages.
+	- Add information about the --with-apparmor build configuration option
+	to INSTALL.md.
+	[524dde965b94]
+
+2022-05-22  kernelmethod  <wss2ec@virginia.edu>
+
+	* docker/debian/latest/Dockerfile, docker/debian/testing/Dockerfile,
+	docker/ubuntu/devel/Dockerfile, docker/ubuntu/latest/Dockerfile,
+	docker/ubuntu/rolling/Dockerfile:
+	Add libapparmor-dev to the Debian and Ubuntu Dockerfiles
+
+	Install libapparmor-dev on Debian- and Ubuntu-based Docker images so
+	that they can build sudo with AppArmor support.
+	[8491c8b6d240]
+
+2022-05-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_nopty.c, src/exec_pty.c:
+	Pass the WUNTRACED flag to waitpid() even if __WALL is present.
+	Otherwise, we won't get the wait status of a suspended command that
+	is not being traced.
+	[7c2b46ec73be]
+
+	* configure, configure.ac, lib/iolog/Makefile.in,
+	lib/logsrv/Makefile.in, logsrvd/Makefile.in,
+	plugins/sudoers/Makefile.in:
+	Use explicit library dependencies instead of implicit. We now
+	include all the dependent libraries when linking. Fixes a linking
+	problem on CentOS Stream 9.
+	[6f06cdbb1552]
+
+	* plugins/sudoers/logging.c:
+	mail_parse_errors: allocate the correct amount of space for mail
+	body. Use strlen(), not sizeof(), on "problem parsing sudoers" since
+	it is a tranlated string and not a constant. This was caught by the
+	existing overflow checks.
+	[5aa53136cd9d]
+
+2022-05-18  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* MANIFEST, src/Makefile.in, src/exec_nopty.c, src/exec_pty.c,
+	src/regress/intercept/test_ptrace.c, src/sudo_exec.h,
+	src/suspend_nopty.c:
+	Move code to suspend sudo when no pty is in use to separate file.
+	Use this in test_ptrace.c to be able to suspend just like sudo does.
+	[ddef421918b7]
+
+2022-05-17  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_nopty.c, src/exec_ptrace.c, src/exec_pty.c,
+	src/regress/intercept/test_ptrace.c, src/sudo_exec.h:
+	Fix suspending a sudo-run shell in ptrace intercept mode with no
+	pty. When ptracing a process, we receive the signal-delivery-stop
+	signal before the group-stop signal. If sudo is running the command
+	in the same terminal, we need to wait until the stop signal is
+	actually delivered to the command before we can suspend sudo itself.
+	If we suspend sudo before receiving the group-stop, the command will
+	be restarted with PTRACE_LISTEN too late and will miss the SIGCONT
+	from sudo.
+	[bf9a482ecddd]
+
+	* docs/TROUBLESHOOTING.md, docs/sudo_logsrvd.man.in,
+	docs/sudo_logsrvd.mdoc.in:
+	OpenSSL 3.x requires the key usage extension be present in CA and
+	certs. Certificates generated with a CA that doesn't set the key
+	usage extension will fail to validate if "tls_verify" is enabled.
+	[3ae4ef1ecf57]
+
+	* logsrvd/tls_init.c:
+	Include the cert or ca file in error messages where applicable.
+	[3e0558886a3d]
+
+	* logsrvd/tls_init.c:
+	Add missing include of string.h for strerror(3).
+	[253a5634d441]
+
+	* logsrvd/logsrvd.c, logsrvd/logsrvd_relay.c, logsrvd/sendlog.c,
+	logsrvd/tls_client.c, logsrvd/tls_init.c,
+	plugins/sudoers/log_client.c:
+	If ERR_reason_error_string() returns NULL, fall back on
+	strerror(errno). That way we get reasonable error messages for
+	missing files, etc.
+	[d2423ef0e284]
+
+	* logsrvd/tls_init.c:
+	set_dhparams: pass BIO_new_file() "r" for the file mode, not
+	O_RDONLY. Unlike BIO_new_fp(), BIO_new_file() takes an fopen-style
+	mode string.
+	[7a67aec88cb4]
+
+	* src/exec_ptrace.c:
+	The set_sc_arg3, get_sc_arg3 and set_sc_arg4 functions are not used.
+	Use ifdef notyet to disable for now since they may be used in the
+	future.
+	[99d2f2a42da5]
+
+2022-05-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.h, src/sudo_exec.h:
+	Use __x86_64__ preprocessor symbol, not __amd64__ Also clarify a
+	comment about MIPS ptrace.
+	[b02ad513eb64]
+
+	* src/exec_ptrace.h, src/sudo_exec.h:
+	ptrace support has been tested on Debian/s390x. It should also work
+	on s390 but this has not been tested. I have not added a compat mode
+	to trace 31-bit binaries on s390x due to the lack of a test system.
+	[3176433e7456]
+
+	* src/exec_ptrace.h:
+	Define sudo_pt_regs instead of user_pt_regs and include the struct
+	keyword. On s390, the struct is typedef'd without a name.
+	[b2b74f378eef]
+
+	* src/exec_ptrace.h, src/sudo_exec.h:
+	ptrace support has been tested on Debian/riscv64.
+	[e1011074d984]
+
+2022-05-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/sudoers.in:
+	Add maxseq setting to log_output example. This should make it more
+	obvious that you need to adjust maxseq unless you have (virtually)
+	unlimited disk space.
+	[5203240a248b]
+
+	* scripts/mkpkg:
+	Fix dependency check for libssl on Debian/Ubuntu with OpenSSL 3.
+	Also add check for python 3.10 and 3.11 and remove versions < 3.4.
+	Fixes building on Ubuntu 22.04.
+	[c9114582911c]
+
+2022-05-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.h:
+	Tracing 32-bit arm binaries from a 64-bit sudo works.
+	[c1e1602874ed]
+
+	* src/exec_ptrace.c:
+	ptrace_write_string: the terminating NUL fix was reverted by
+	mistake.
+	[587dd11b2783]
+
+	* src/exec_ptrace.h, src/sudo_exec.h:
+	ptrace-based intercept has now been tested on 32-bit arm
+	[493b17a89e63]
+
+2022-05-13  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.h:
+	Don't use PTRACE_SET_SYSCALL for 32-bit arm binaries running on
+	aarch64. Use PTRACE_SETREGSET with NT_ARM_SYSTEM_CALL instead just
+	like we would for a 64-bit binary. Newer Linux headers don't define
+	PTRACE_SET_SYSCALL for aarch64.
+	[5930846e9c9e]
+
+	* src/regress/intercept/test_ptrace.c:
+	Replace verbose flag with debug flag. This is more accurate since it
+	actually uses the debug subsystem.
+	[dda8b8af8bd2]
+
+	* src/exec_ptrace.h:
+	Initial cut at MIPS support, untested. Mips is a bit different in
+	that most Linux distros appear to use the n32 ABI on 64-bit CPUs. We
+	don't currently support tracing a 64-bit binary from a 32-bit sudo.
+	We could suport tracing o32 ABI binaries in compat mode, though.
+	[05e5e246463a]
+
+2022-05-12  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/regress/intercept/test_ptrace.c:
+	Add have_seccomp_action("trap") call to check for
+	SECCOMP_MODE_FILTER.
+	[250c6b72c4f4]
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	Add arm-specific code to set the system call number. Fixes rejection
+	of commands due to policy on arm when in intercept mode.
+	[74c5bd26713b]
+
+	* scripts/mkpkg:
+	Fix OS major version detection on CentOS Stream
+	[cd4d5aaf59a7]
+
+	* src/exec_ptrace.c:
+	Repair ptrace_write_vec() for compat binaries.
+	[77ee302b0631]
+
+	* src/regress/intercept/test_ptrace.c:
+	Fix a crash when not run in verbose mode.
+	[adf481623228]
+
+	* src/exec_ptrace.c:
+	ptrace_intercept_execve: read back the updated syscall args in test
+	mode. This makes it easier to detect problems with the syscall
+	rewrite code when testing with test_ptrace.
+	[4eb9e09d90d9]
+
+2022-05-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c, src/exec_ptrace.h, src/sudo_exec.h:
+	Enable ptrace intercept on powerpc. Tested on ppc64 and ppc64le.
+	[fbd12baa1a02]
+
+	* src/exec_ptrace.c:
+	Fix tracing compat binaries on big endian systems. We need to swap
+	the order of the two 32-bit addresses for big-endian.
+	[375004a3ef09]
+
+	* src/exec_ptrace.c:
+	Move code to write a string vector to ptrace_write_vec().
+	[8401e0397f11]
+
+	* src/exec_ptrace.c:
+	Fix compilation error on systems with no compat arch. Currently only
+	affects i386.
+	[b95c707298c5]
+
+	* MANIFEST, src/Makefile.in, src/exec_intercept.h, src/exec_ptrace.c,
+	src/regress/intercept/test_ptrace.c, src/sudo_exec.h:
+	Add test_ptrace program to test ptrace-based intercept support.
+	[5f7162bcdbfd]
+
+	* src/exec_ptrace.c:
+	Use unsigned long for addresses so we don't have to worry about sign
+	extension.
+	[7a0d4ea2fa70]
+
+2022-05-10  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	ptrace_write_string: make sure we always write the terminating NUL.
+	We can't check *str for NUL since it may not have been written yet.
+	[9d95217981ac]
+
+	* src/exec_ptrace.c:
+	Fix compilation error when SECCOMP_AUDIT_ARCH_COMPAT is not defined.
+	[3162054bac24]
+
+2022-05-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	It is now safe to make WORDALIGN use compat (not native) aligment.
+	We allocate space for an extra pointer between argv and the string
+	table for compat binaries so there is no need to align address to
+	sizeof(long).
+	[898626f1cdf6]
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	Use the entire word in ptrace_get_vec_len() and ptrace_read_vec().
+	For compat binaries, use the upper 32-bits as the next word instead
+	of calling ptrace(2) to get it. This reduces the number of ptrace(2)
+	calls when reading argv and envp for compat binaries.
+	[cf5d1ae47dbe]
+
+2022-05-07  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	We don't need to align strings in the string table. We align the
+	start of the string table to a word boundary to help prevent overlap
+	when writing the pointers. However, the actual strings themselves
+	don't need to be aligned.
+	[219a1a07fc2e]
+
+2022-05-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	Avoid potentially overwriting string table when writing argv. In
+	compat mode, if argc is odd, writing the last pointer of argv will
+	overlap with the address of argv[0], so leave an extra word in
+	between. Also remove incorrect comments about PTRACE_PEEKDATA
+	unaligned access.
+	[13f7e63a31bd]
+
+	* src/exec_ptrace.c, src/exec_ptrace.h:
+	Use native word size for padding and when reading/writing strings.
+	If we try to use the compat word size we can end up in a situation
+	where a subsequent PTRACE_POKEDATA overwrites part of what we've
+	already written since it always writes in sizeof(long) units.
+	[e0d7fdc3f8e2]
+
+2022-05-05  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_ptrace.c:
+	ptrace_intercept_execve: rewrite path to exec if changed by the
+	policy
+	[089f0e32cf2a]
+
+	* src/exec_ptrace.c:
+	ptrace_intercept_execve: plug memory leak of get_execve_info()
+	buffer
+	[5ce2cf252c80]
+
+	* MANIFEST, src/Makefile.in, src/exec_intercept.h, src/exec_ptrace.c,
+	src/exec_ptrace.h:
+	Move register definitions to exec_ptrace.h
+	[59cc9bec6925]
+
+	* src/exec_ptrace.c:
+	Add support for intercepting 32-bit binaries on 64-bit systems. We
+	need to define the ptrace register struct ourselves for the 32-bit
+	system since there is no good way to get it from the system headers.
+	Currently only implemented for x86_64 and aarch64.
+	[a0407bb1fee0]
+
+	* src/exec_ptrace.c:
+	Add setters and getters for ptrace(2) register access. This will be
+	used when running 32-bit binaries from a 64-bit sudo.
+	[f7da9453d9fa]
+
+	* src/exec_ptrace.c:
+	exec_ptrace_handled: don't return early if ptrace_intercept_execve()
+	fails. We need to continue the traced process even if there is a
+	fatal error. Otherwise, sudo will appear to hang as the running
+	process is left in PTRACE_EVENT stop.
+	[5b3bd75c4486]
+
+	* src/exec_ptrace.c:
+	Don't use PTRACE_GETREGS, it is too complicated when runing compat
+	binaries. Unlike PTRACE_GETREGSET, PTRACE_GETREGS requires that we
+	manually map registers from 64-bit to 32-bit layouts when running,
+	e.g. a 32-bit binary from a 64-bit sudo process.
+	[bb3476230373]
+
+2022-05-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/sudoers.man.in, docs/sudoers.mdoc.in,
+	plugins/sudoers/defaults.c, plugins/sudoers/policy.c,
+	plugins/sudoers/sudoers.h, src/exec_nopty.c, src/exec_pty.c,
+	src/parse_args.c, src/sudo.c, src/sudo.h, src/sudo_exec.h:
+	Initialize intercept_allow_setid to true if we use ptrace(2) and
+	seccomp(2).
+	[57e58c0ada44]
+
+2022-05-03  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/exec_nopty.c, src/exec_ptrace.c, src/exec_pty.c,
+	src/sudo_exec.h:
+	If the process is already being traced, just resume it and clear
+	flags. This makes it possible to run sudo in ptrace intercept mode
+	from within a shell (or other process) that is already being traced
+	by sudo.
+	[db4d7cd5f673]
+
+	* src/exec_ptrace.c:
+	exec_ptrace_handled: fix delivery of non-stop signals. We need to
+	deliver signals to the tracee as long as it is not a group stop.
+	Fixes a hang while tracing another sudo process.
+	[4ede8b4cfbd9]
+
+	* src/exec_nopty.c:
+	Make SIGCHLD handler more consistent with the pty version. No real
+	change other than a few debug statements.
+	[bd52284b1e2a]
+
+	* plugins/sudoers/parse.c:
+	sudoers_lookup_check: preserve intercepted flag when reinitializing
+	cmnd_info Otherwise we may not reject an attempt to run a set-user-
+	ID command.
+	[43d72d1537b2]
+
+	* src/exec_nopty.c, src/exec_pty.c:
+	Kill the command if intercept_setup() or ptrace_seize() fail.
+	[1037f81b327b]
+
+2022-05-02  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/match_command.c:
+	Move intercept setid check out of do_stat() and into its own
+	function. For command_matches_all() we should only perform the setid
+	check if the file exists and intercept is enabled. Otherwise, we can
+	end up returning an error if the fully-qualified command does not
+	exist. Fixes a regression introduced in sudo 1.9.0 with the support
+	for digests in conjunction with "sudo ALL".
+	[1b5f9ed2160a]
+
+	* src/exec_ptrace.c:
+	Add support for intercepting x32 binaries on Linux x64_64.
+	[c5fc89f38c43]
+
+2022-04-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* NEWS, configure, configure.ac:
+	Sudo 1.9.11
+	[d3e832f94348]
+
+	* plugins/sudoers/auth/kerb5.c, src/exec_ptrace.c:
+	Fix typos
+	[8ef3e84fc62e]
+
+	* MANIFEST, docs/CONTRIBUTORS.md, po/ka.mo, po/ka.po:
+	New Georgian translation from translationproject.org
+	[f6b9c7d2192c]
+
+	* src/exec_ptrace.c:
+	Short-circuit the policy check if the command doesn't exist.
+	Otherwise, both sudo and the shell will report the error.
+	[f16f1b6705d9]
+
+	* src/exec_ptrace.c:
+	Add support for replacing argv in ptrace intecept mode. The new argv
+	is written below the tracee's stack and the system call argument is
+	replaced with the new argv address.
+	[3974c784be8b]
+
+	* src/exec_ptrace.c:
+	Check architecture in the seccomp filter. Currently only supports
+	the native architecture.
+	[13f88e436ae0]
+
+	* src/exec_common.c, src/exec_monitor.c, src/exec_nopty.c,
+	src/exec_ptrace.c:
+	Suspend the child process and wait for SIGUSR when using ptrace.
+	This fixes a race condition in ptrace-based intercept mode when
+	running the command in a pty. It was possible for the monitor to
+	receive SIGCHLD when the command sent itself SIGSTOP before the main
+	sudo process did.
+	[cf1f0bea9931]
+
+	* plugins/sudoers/parse.c, src/exec.c, src/selinux.c, src/sudo.h:
+	Enable intercept and log_subcmds for SELinux using ptrace and
+	seccomp.
+	[5d7a3df4457e]
+
+	* src/exec_intercept.c, src/exec_intercept.h, src/exec_ptrace.c,
+	src/sudo.c, src/sudo.h:
+	For ptrace intercept mode, do not do a policy check for the initial
+	command. We can skip the policy check for the execve(2) of the
+	initial command since it has already been check. Otherwise, we would
+	log the command twice. When using fexecve(2) due to a digest check,
+	there should be no need to skip the initial command since it will be
+	executed via execveat(2) not execve(2). However, on older kernels
+	without execveat(2), glibc will emulate fexecve(2) using /proc which
+	will result in the extra log entry.
+	[e411d6bc3855]
+
+	* docs/sudo.conf.man.in, docs/sudo.conf.mdoc.in, docs/sudoers.man.in,
+	docs/sudoers.mdoc.in:
+	Update intercept documentation.
+	[f44f1cb2a5d2]
+
+	* src/exec_intercept.c, src/exec_ptrace.c:
+	In ptrace(2) intercept mode, add execveat to the seccomp(2) filter.
+	This allows us to avoid logging the initial command twice regardless
+	of whether the kernel supports execveat(2) or not.
+	[d39bd5adac13]
+
+	* src/exec_ptrace.c:
+	Use PTRACE_GETREGS/PTRACE_SETREGS on platforms that support it. This
+	has a better chance of working on things like user-mode Linux.
+	[c53475bd4020]
+
+	* MANIFEST, src/Makefile.in, src/exec_intercept.c,
+	src/exec_intercept.h, src/exec_nopty.c, src/exec_ptrace.c,
+	src/exec_pty.c, src/sudo_exec.h:
+	Check the policy for ptrace-based intercept mode.
+	[6eadd667ca6d]
+
+	* src/exec_ptrace.c:
+	Add support for getting the execve(2) arguments via ptrace(2). This
+	will be used to perform a policy check in intercept mode.
+	[84b23ae53e2f]
+
+	* MANIFEST, src/Makefile.in, src/exec.c, src/exec_common.c,
+	src/exec_intercept.c, src/exec_nopty.c, src/exec_ptrace.c,
+	src/exec_pty.c, src/sudo.h, src/sudo_exec.h:
+	Add scaffolding for ptrace-based intercept mode.
+	[34a6269ac4eb]
+
+	* include/sudo_compat.h, src/exec_monitor.c, src/exec_nopty.c,
+	src/exec_pty.c:
+	Stop using the WCONTINUED flag with waitpid(2). We don't use it for
+	anything other than a debug message and it will cause problems when
+	intercept mode starts using ptrace(2).
+	[1f55993d68eb]
+
+	* src/exec_nopty.c, src/exec_pty.c:
+	Handle multiple child processes in the SIGCHLD handler. This is
+	required by the uncoming ptrace intercept code.
+	[6dd72fb8f53f]
+
+2022-04-24  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* logsrvd/iolog_writer.c, logsrvd/logsrvd_journal.c,
+	plugins/sudoers/log_client.c:
+	sudo_logsrvd: update elapsed time for winsize and suspend in journal
+	mode Fixes a bug in store-first relay mode where the commit point
+	messages sent by the server were incorrect.
+	[5607e8c7b559]
+
+2022-04-23  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/visudo.man.in, docs/visudo.mdoc.in:
+	Fix typo; GitHub issue #144
+	[fb1a539569b4]
+
+2022-04-20  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* docs/TROUBLESHOOTING.md:
+	Expand section about expired accounts to include /etc/shadow info.
+	GitHub issue #143
+	[78368dadddfb]
+
+	* src/exec_monitor.c:
+	Add struct command details * to struct monitor_closure. This will be
+	used in the future by the ptrace intercept code.
+	[0603acf1ff96]
+
+	* src/exec.c:
+	Translate "unable to set limit privileges" strings.
+	[a8426e224497]
+
+	* ABOUT-NLS, MANIFEST, docs/CONTRIBUTING.md:
+	Remove ABOUT-NLS file, it is no longer maintained as part of GNU
+	gettext. Expand the Translations section in CONTRIBUTING.md.
+	[b4f0269a8f13]
+
+	* src/exec.c, src/exec_intercept.c:
+	Don't require a pty for intercept or log_subcmmds. The code to take
+	back control of the tty before a policy check doesn't appear to be
+	needed. If the command is run in its own pty, sudo has control over
+	the user's tty. If the command is run in the user's tty, sudo should
+	be in the foreground process group.
+	[bddcc0d9fee6]
+
+2022-04-19  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* config.h.in, configure, configure.ac:
+	Define _TIME_BITS=64 on systems that define __TIMESIZE, like GNU
+	libc. This should be replaced by a specialized autoconf macro when
+	one becomes available.
+	[f63b7f9ea5c2]
+
+2022-04-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/python/regress/testdata/check_example_group_plugin_is_able_t
+	o_debug.log, plugins/python/regress/testhelpers.c:
+	clean_output: prune lines that consisting of '^' characters and
+	whitespace. Starting with Python 3.11, backtraces may contain a line
+	with '^' characters to bring attention to the important part of the
+	line. Also replace "REJECT" with "0" in backtrace output for Python
+	3.11.
+	[f6a5d1c05b2b]
+
+2022-04-04  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Fix check for EVP_MD_CTX_new() when -pthread is in Libs.private.
+	[4f3fd0d1fd34]
+
+2022-04-01  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac, lib/eventlog/Makefile.in,
+	lib/fuzzstub/Makefile.in, lib/iolog/Makefile.in,
+	lib/logsrv/Makefile.in, lib/protobuf-c/Makefile.in,
+	lib/util/Makefile.in, lib/zlib/Makefile.in, logsrvd/Makefile.in,
+	plugins/audit_json/Makefile.in, plugins/group_file/Makefile.in,
+	plugins/python/Makefile.in, plugins/sample/Makefile.in,
+	plugins/sample_approval/Makefile.in, plugins/sudoers/Makefile.in,
+	plugins/system_group/Makefile.in, src/Makefile.in:
+	Rename SSP_(C|LD)FLAGS -> HARDENING_(C|LD)FLAGS
+	[92aa57606481]
+
+	* INSTALL.md:
+	Mention other hardening compilation and linker options.
+	[7da9cf428e39]
+
+2022-03-31  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	Fix check for EVP_MD_CTX_new using static libcrypto with
+	dependencies.
+	[c02d6b6e474c]
+
+	* configure, m4/libtool.m4, m4/ltoptions.m4, m4/ltsugar.m4,
+	m4/ltversion.m4, m4/lt~obsolete.m4, scripts/ltmain.sh:
+	Update to libtool 2.4.7.
+	[b8824f6b792c]
+
+2022-03-30  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* configure, configure.ac:
+	--enable-openssl: don't add non-existent directories to
+	PKG_CONFIG_LIBDIR
+	[daa9cab172da]
+
+2022-03-29  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* scripts/mkpkg:
+	Fix a typo in the AIX section.
+	[4d122a222632]
+
+2022-03-28  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/zlib/crc32.c, lib/zlib/crc32.h, lib/zlib/deflate.c,
+	lib/zlib/deflate.h, lib/zlib/gzguts.h, lib/zlib/gzlib.c,
+	lib/zlib/gzread.c, lib/zlib/gzwrite.c, lib/zlib/infback.c,
+	lib/zlib/inffast.c, lib/zlib/inflate.c, lib/zlib/inflate.h,
+	lib/zlib/inftrees.c, lib/zlib/trees.c, lib/zlib/zlib.exp,
+	lib/zlib/zlib.h, lib/zlib/zutil.c, lib/zlib/zutil.h:
+	Update embedded copy of zlib to version 1.2.12. Fixes CVE-2018-25032
+	[3e2517079d86]
+
+2022-03-16  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/auth/kerb5.c:
+	Minor style nit.
+	[9bdde2c81a3d]
+
+	* Merge pull request #138 from dfskoll/main
+
+	If we're using Kerberos, don't overwrite a custom prompt
+	[266b04c9ee0a]
+
+2022-03-16  Dianne Skoll  <dianne@skoll.ca>
+
+	* plugins/sudoers/auth/kerb5.c:
+	If we're using Kerberos, don't overwrite a custom prompt if one was
+	given with -p
+
+	Thanks to @thend20 for testing this patch.
+	[e62136f88c3e]
+
+2022-03-15  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/conversation.c:
+	Write the \r\n pair to ttyfp if possible, falling back on fp. This
+	is consistent with the vfprintf() call and fixes a problem
+	introduced by the last commit where the newline could be written
+	before the message instead of after.
+	[3aaebbec4ee5]
+
+	* include/sudo_util.h,
+	plugins/sudoers/regress/starttime/check_starttime.c:
+	Adjust starttime test when run under Debian faketime. Bug #1026
+	[b8ac7dec6e11]
+
+2022-03-14  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* src/conversation.c:
+	sudo_conversation_printf: convert trailing nl to cr + nl combo. This
+	fixes output when the terminal is in raw mode and is consistent with
+	how sudo_conversation() behaves.
+	[e377f2a71021]
+
+	* lib/eventlog/eventlog.c, src/exec_monitor.c, src/exec_nopty.c,
+	src/exec_pty.c, src/tgetpass.c:
+	Block SIGCHLD when forking the mailer. Otherwise, it may be picked
+	up by the signal handler instead of our waitpid(2) call. Don't warn
+	if waitpid() returns 0 in a SIGCHLD handler.
+	[e34a3f90de5b]
+
+	* plugins/sudoers/sudoers.c:
+	Do not warn, log or send mail for errors when reinitializing
+	defaults. If there is a problem, we would have already warned,
+	logged or mailed it. The one exception is the initial defaults,
+	which should never fail.
+	[0d273f4d307d]
+
+	* plugins/sudoers/logging.c, plugins/sudoers/logging.h,
+	plugins/sudoers/parse.c, plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_sudoers.c,
+	plugins/sudoers/sudoers.c:
+	If there are multiple parse errors, send them in a single mail
+	message.
+	[5de37ad1101f]
+
+	* lib/eventlog/Makefile.in, lib/iolog/Makefile.in,
+	lib/util/Makefile.in, logsrvd/Makefile.in,
+	plugins/python/Makefile.in, plugins/sudoers/Makefile.in,
+	src/Makefile.in:
+	Unset LANGUAGE when running tests, otherwise it may override LC_ALL.
+	Bug #1025.
+	[87573102f25b]
+
+2022-03-11  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/visudo.c:
+	Looser owner/permission checks for an uninstalled sudoers file. We
+	don't check the owner or permissions on a sudoers file that is
+	specified as an argument to visudo by default. However, the owner
+	and mode of files included via @includedir were still checked. This
+	commit makes the owner and permissions checks for filed included via
+	@includedir follow the same as for the original sudoers file.
+	[db78857306d4]
+
+	* lib/util/regress/getdelim/getdelim_test.c:
+	getdelim_test: increase longstr to check end pointer after realloc
+	This would have caught the recent bug in our getdelim replacement
+	when run under address-sanitizer or valgrind.
+	[6559a42a3205]
+
+	* plugins/sudoers/check_aliases.c:
+	Add missing va_start/va_end around call to sudoers_error_hook().
+	Coverity CID 250885
+	[49d026ba67b2]
+
+	* lib/util/getdelim.c:
+	Correctly update the end pointer when we expand the buffer. From
+	Robert Manner.
+	[99617ae8332d]
+
+2022-03-10  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/util/secure_path.c:
+	sudo_secure_path: pass the struct stat * argument directly to
+	stat(2) Set the pointer to a struct stat on the stack if st is NULL.
+	Avoids a needless memcpy() at the end.
+	[11636745ce29]
+
+	* plugins/sudoers/gram.c, plugins/sudoers/gram.y:
+	Fix off-by-one when storing line number in userspec. We store the
+	line number *after* parsing the newline so we need to subtract one.
+	[40d6521a966e]
+
+	* lib/eventlog/eventlog.c:
+	For alert messages, the command or runuser may not be set. This
+	fixes the logging of parse errors when JSON logging is enabled.
+	[cfde228ef422]
+
+	* plugins/sudoers/defaults.c, plugins/sudoers/defaults.h,
+	plugins/sudoers/group_plugin.c, plugins/sudoers/iolog.c,
+	plugins/sudoers/locale.c, plugins/sudoers/logging.h,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	plugins/sudoers/testsudoers.c:
+	Pass file, line and column to sudoers defaults callbacks.
+	[04a26b1a224c]
+
+	* plugins/sudoers/audit.c, plugins/sudoers/check_aliases.c,
+	plugins/sudoers/cvtsudoers.c, plugins/sudoers/defaults.c,
+	plugins/sudoers/file.c, plugins/sudoers/gram.c,
+	plugins/sudoers/gram.h, plugins/sudoers/gram.y,
+	plugins/sudoers/logging.c, plugins/sudoers/logging.h,
+	plugins/sudoers/parse.h, plugins/sudoers/policy.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/sudoers/test18.toke.ok,
+	plugins/sudoers/regress/visudo/test2.err.ok,
+	plugins/sudoers/sudoers.c, plugins/sudoers/sudoers.h,
+	plugins/sudoers/visudo.c:
+	Add a hook for sudoers parse errors (including defaults and
+	aliases). The hook can be used to log parser errors (sudoers module)
+	or keep track of which files have an error (visudo). Previously, we
+	only kept track of a single parse error.
+	[601915bb6265]
+
+2022-03-09  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* plugins/sudoers/file.c, plugins/sudoers/ldap.c,
+	plugins/sudoers/regress/fuzz/fuzz_policy.c,
+	plugins/sudoers/regress/sudoers/test18.out.ok,
+	plugins/sudoers/sssd.c, plugins/sudoers/sudo_nss.h,
+	plugins/sudoers/sudoers.c, plugins/sudoers/testsudoers.c:
+	Add a source to struct sudo_nss and use it if getdefs() fails. Also
+	remove useless "Problem with defaults entries" warning in
+	testsudoers.
+	[f9ba65e975a0]
+
+2022-03-08  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/iolog/regress/iolog_path/check_iolog_path.c,
+	lib/util/regress/getgrouplist/getgrouplist_test.c:
+	Plug a few test memory leaks now that they return from main().
+	[dc4db97a1d57]
+
+2022-03-06  Todd C. Miller  <Todd.Miller@sudo.ws>
+
+	* lib/eventlog/regress/logwrap/check_wrap.c,
+	plugins/sudoers/regress/parser/check_addr.c:
+	Remove extra newline in sudo_warnx() calls.
+	[3366401671fc]
+
+	* plugins/sudoers/check_aliases.c, plugins/sudoers/cvtsudoers.c,
+	plugins/sudoers/file.c, plugins/sudoers/gram.c,
+	plugins/sudoers/gram.h, plugins/sudoers/gram.y,
+	plugins/sudoers/sudoers.h, plugins/sudoers/visudo.c:
+	Preserve the column and error message when there is a syntax error.
+	This information is now included in the error mail sent to root.
+	[a224b006bfb3]
+
+	* plugins/python/python_plugin_common.c:
+	Deinit python subinterpreters in reverse order (last to first). This
+	appears to work around a crash on OpenBSD with Python 3.9.10.
+	[ad4d7b33da9b]
+
 2022-03-03  Todd C. Miller  <Todd.Miller@sudo.ws>
 
 	* .hgtags:
 	Added tag SUDO_1_9_10 for changeset 3557db693da4
-	[edcb9bf4d4c3] [tip] <1.9>
+	[edcb9bf4d4c3] <1.9>
 
 	* NEWS, config.h.in, configure, configure.ac, include/sudo_compat.h,
 	plugins/sudoers/regress/fuzz/fuzz_policy.c:

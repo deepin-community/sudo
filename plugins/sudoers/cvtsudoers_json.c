@@ -77,7 +77,7 @@ print_command_json(struct json_container *jsonc, const char *name, bool negated)
 	}
     }
     value.type = JSON_STRING;
-    value.u.string = cmnd ? cmnd : "ALL";
+    value.u.string = cmnd ? cmnd : (char *)"ALL";
 
     if (!negated && TAILQ_EMPTY(&c->digests)) {
 	/* Print as { "command": "command and args" } */
@@ -581,6 +581,9 @@ cmndspec_continues(struct cmndspec *cs, struct cmndspec *next)
 #ifdef HAVE_SELINUX
 	&& cs->role == next->role && cs->type == next->type
 #endif /* HAVE_SELINUX */
+#ifdef HAVE_APPARMOR
+	&& cs->apparmor_profile == next->apparmor_profile
+#endif /* HAVE_APPARMOR */
 	&& cs->runchroot == next->runchroot && cs->runcwd == next->runcwd;
     return ret;
 }
@@ -755,6 +758,16 @@ print_cmndspec_json(struct json_container *jsonc,
     }
 #endif /* HAVE_SELINUX */
 
+#ifdef HAVE_APPARMOR
+    if (cs->apparmor_profile != NULL) {
+	sudo_json_open_array(jsonc, "AppArmor_Spec");
+	value.type = JSON_STRING;
+	value.u.string = cs->apparmor_profile;
+	sudo_json_add_value(jsonc, "apparmor_profile", &value);
+	sudo_json_close_array(jsonc);
+    }
+#endif /* HAVE_APPARMOR */
+
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
@@ -886,7 +899,7 @@ convert_sudoers_json(struct sudoers_parse_tree *parse_tree,
     }
 
     /* 4 space indent, non-compact, exit on memory allocation failure. */
-    sudo_json_init(&jsonc, 4, false, true);
+    sudo_json_init(&jsonc, 4, false, true, false);
 
     /* Dump Defaults in JSON format. */
     if (!ISSET(conf->suppress, SUPPRESS_DEFAULTS)) {

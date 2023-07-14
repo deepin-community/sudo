@@ -165,6 +165,16 @@ check_user(int validated, int mode)
     debug_decl(check_user, SUDOERS_DEBUG_AUTH);
 
     /*
+     * In intercept mode, only check the user if configured to do so.
+     * We already have a session so no need to init the auth subsystem.
+     */
+    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
+	if (!def_intercept_authenticate) {
+	    debug_return_int(true);
+	}
+    }
+
+    /*
      * Init authentication system regardless of whether we need a password.
      * Required for proper PAM session support.
      */
@@ -190,6 +200,9 @@ check_user(int validated, int mode)
 #ifdef HAVE_SELINUX
 	if (user_role == NULL && user_type == NULL)
 #endif
+#ifdef HAVE_APPARMOR
+	if (user_apparmor_profile == NULL)
+#endif
 #ifdef HAVE_PRIV_SET
 	if (runas_privs == NULL && runas_limitprivs == NULL)
 #endif
@@ -212,8 +225,8 @@ done:
 	 * Only update time stamp if user validated and was approved.
 	 * Failure to update the time stamp is not a fatal error.
 	 */
-	if (ret == true && closure.tstat != TS_ERROR) {
-	    if (ISSET(validated, VALIDATE_SUCCESS))
+	if (ret == true && ISSET(validated, VALIDATE_SUCCESS)) {
+	    if (ISSET(mode, MODE_UPDATE_TICKET) && closure.tstat != TS_ERROR)
 		(void)timestamp_update(closure.cookie, closure.auth_pw);
 	}
     }
@@ -233,12 +246,12 @@ void
 display_lecture(struct sudo_conv_callback *callback)
 {
     struct getpass_closure *closure;
-    struct sudo_conv_message msg;
-    struct sudo_conv_reply repl;
+    struct sudo_conv_message msg[2];
+    struct sudo_conv_reply repl[2];
     char buf[BUFSIZ];
     struct stat sb;
     ssize_t nread;
-    int fd;
+    int fd, msgcount = 1;
     debug_decl(lecture, SUDOERS_DEBUG_AUTH);
 
     if (callback == NULL || (closure = callback->closure) == NULL)
@@ -260,9 +273,9 @@ display_lecture(struct sudo_conv_callback *callback)
 		(void) fcntl(fd, F_SETFL, fcntl(fd, F_GETFL, 0) & ~O_NONBLOCK);
 		while ((nread = read(fd, buf, sizeof(buf) - 1)) > 0) {
 		    buf[nread] = '\0';
-		    msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
-		    msg.msg = buf;
-		    sudo_conv(1, &msg, &repl, NULL);
+		    msg[0].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+		    msg[0].msg = buf;
+		    sudo_conv(1, msg, repl, NULL);
 		}
 		if (nread == 0) {
 		    close(fd);
@@ -284,14 +297,19 @@ display_lecture(struct sudo_conv_callback *callback)
     }
 
     /* Default sudo lecture. */
-    msg.msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
-    msg.msg = _("\n"
+    msg[0].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+    msg[0].msg = _("\n"
 	"We trust you have received the usual lecture from the local System\n"
 	"Administrator. It usually boils down to these three things:\n\n"
 	"    #1) Respect the privacy of others.\n"
 	"    #2) Think before you type.\n"
 	"    #3) With great power comes great responsibility.\n\n");
-    sudo_conv(1, &msg, &repl, NULL);
+    if (!def_pwfeedback) {
+	msg[1].msg_type = SUDO_CONV_ERROR_MSG|SUDO_CONV_PREFER_TTY;
+	msg[1].msg = _("For security reasons, the password you type will not be visible.\n\n");
+	msgcount++;
+    }
+    sudo_conv(msgcount, msg, repl, NULL);
 
 done:
     closure->lectured = true;
@@ -307,10 +325,6 @@ user_is_exempt(void)
     bool ret = false;
     debug_decl(user_is_exempt, SUDOERS_DEBUG_AUTH);
 
-    if (ISSET(sudo_mode, MODE_POLICY_INTERCEPTED)) {
-	if (!def_intercept_authenticate)
-	    ret = true;
-    }
     if (def_exempt_group) {
 	if (user_in_group(sudo_user.pw, def_exempt_group))
 	    ret = true;

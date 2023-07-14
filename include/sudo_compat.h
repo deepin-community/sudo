@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2008, 2009-2018
+ * Copyright (c) 1996, 1998-2005, 2008, 2009-2023
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -37,51 +37,6 @@
  * Macros and functions that may be missing on some operating systems.
  */
 
-#ifndef __GNUC_PREREQ__
-# ifdef __GNUC__
-#  define __GNUC_PREREQ__(ma, mi) \
-	((__GNUC__ > (ma)) || (__GNUC__ == (ma) && __GNUC_MINOR__ >= (mi)))
-# else
-#  define __GNUC_PREREQ__(ma, mi)	0
-# endif
-#endif
-
-/* Define away __attribute__ for non-gcc or old gcc */
-#if !defined(__attribute__) && !__GNUC_PREREQ__(2, 5)
-# define __attribute__(x)
-#endif
-
-/* For catching format string mismatches */
-#ifndef __printflike
-# if __GNUC_PREREQ__(3, 3)
-#  define __printflike(f, v) 	__attribute__((__format__ (__printf__, f, v))) __attribute__((__nonnull__ (f)))
-# elif __GNUC_PREREQ__(2, 7)
-#  define __printflike(f, v) 	__attribute__((__format__ (__printf__, f, v)))
-# else
-#  define __printflike(f, v)
-# endif
-#endif
-#ifndef __printf0like
-# if __GNUC_PREREQ__(2, 7)
-#  define __printf0like(f, v) 	__attribute__((__format__ (__printf__, f, v)))
-# else
-#  define __printf0like(f, v)
-# endif
-#endif
-#ifndef __format_arg
-# if __GNUC_PREREQ__(2, 7)
-#  define __format_arg(f) 	__attribute__((__format_arg__ (f)))
-# else
-#  define __format_arg(f)
-# endif
-#endif
-
-#ifdef HAVE_FALLTHROUGH_ATTRIBUTE
-# define FALLTHROUGH 	__attribute__((__fallthrough__))
-#else
-# define FALLTHROUGH 	do { } while (0)
-#endif
-
 /*
  * Given the pointer x to the member m of the struct s, return
  * a pointer to the containing structure.
@@ -99,26 +54,6 @@
 # else
 #  define va_copy(d, s) memcpy(&(d), &(s), sizeof(d));
 # endif
-#endif
-
-#ifndef CMSG_ALIGN
-# define CMSG_ALIGN(p) \
-    (((size_t)(p) + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1))
-#endif
-
-/* Length of the contents of a control message of length len. */
-#ifndef CMSG_LEN
-# define CMSG_LEN(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + (len))
-#endif
-
-/* Length of the space taken up by a padded control message of length len. */
-#ifndef CMSG_SPACE
-# define CMSG_SPACE(len) (CMSG_ALIGN(sizeof(struct cmsghdr)) + CMSG_ALIGN(len))
-#endif
-
-/* Given a pointer to struct cmsghdr, return a pointer to data. */
-#ifndef CMSG_DATA
-# define CMSG_DATA(cmsg) ((unsigned char *)(cmsg) + CMSG_ALIGN(sizeof(struct cmsghdr)))
 #endif
 
 /*
@@ -157,7 +92,7 @@
 #endif
 
 #if defined(HAVE_DECL_SSIZE_MAX) && !HAVE_DECL_SSIZE_MAX
-# define SIZE_MAX	LONG_MAX
+# define SSIZE_MAX	LONG_MAX
 #endif
 
 #if defined(HAVE_DECL_PATH_MAX) && !HAVE_DECL_PATH_MAX
@@ -270,10 +205,10 @@ extern int errno;
 #endif /* !HAVE_DECL_ERRNO */
 
 /* Not all systems define NSIG in signal.h */
-#if !defined(NSIG)
-# if defined(_NSIG)
+#if defined(HAVE_DECL_NSIG) && !HAVE_DECL_NSIG
+# if defined(HAVE_DECL__NSIG) && HAVE_DECL__NSIG
 #  define NSIG _NSIG
-# elif defined(__NSIG)
+# elif defined(HAVE_DECL___NSIG) && HAVE_DECL___NSIG
 #  define NSIG __NSIG
 # else
 #  define NSIG 64
@@ -288,12 +223,6 @@ extern int errno;
 /* WCOREDUMP is not POSIX, this usually works (verified on AIX). */
 #ifndef WCOREDUMP
 # define WCOREDUMP(x)	((x) & 0x80)
-#endif
-
-/* Older systems may not support WCONTINUED */
-#if !defined(WCONTINUED) && !defined(WIFCONTINUED)
-# define WCONTINUED		0
-# define WIFCONTINUED(x)	0
 #endif
 
 /* W_EXITCODE is not POSIX but the encoding of wait status is. */
@@ -490,22 +419,22 @@ sudo_dso_public int sudo_futimens(int fd, const struct timespec *times);
 # define futimens(_a, _b) sudo_futimens((_a), (_b))
 #endif /* HAVE_FUTIMENS */
 #if !defined(HAVE_SNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_snprintf(char *str, size_t n, char const *fmt, ...) __printflike(3, 4);
+sudo_dso_public int sudo_snprintf(char *str, size_t n, char const *fmt, ...) sudo_printflike(3, 4);
 # undef snprintf
 # define snprintf sudo_snprintf
 #endif /* HAVE_SNPRINTF */
 #if !defined(HAVE_VSNPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vsnprintf(char *str, size_t n, const char *fmt, va_list ap) __printflike(3, 0);
+sudo_dso_public int sudo_vsnprintf(char *str, size_t n, const char *fmt, va_list ap) sudo_printflike(3, 0);
 # undef vsnprintf
 # define vsnprintf sudo_vsnprintf
 #endif /* HAVE_VSNPRINTF */
 #if !defined(HAVE_ASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_asprintf(char **str, char const *fmt, ...) __printflike(2, 3);
+sudo_dso_public int sudo_asprintf(char **str, char const *fmt, ...) sudo_printflike(2, 3);
 # undef asprintf
 # define asprintf sudo_asprintf
 #endif /* HAVE_ASPRINTF */
 #if !defined(HAVE_VASPRINTF) || defined(PREFER_PORTABLE_SNPRINTF)
-sudo_dso_public int sudo_vasprintf(char **str, const char *fmt, va_list ap) __printflike(2, 0);
+sudo_dso_public int sudo_vasprintf(char **str, const char *fmt, va_list ap) sudo_printflike(2, 0);
 # undef vasprintf
 # define vasprintf sudo_vasprintf
 #endif /* HAVE_VASPRINTF */
@@ -529,6 +458,11 @@ sudo_dso_public size_t sudo_strnlen(const char *str, size_t maxlen);
 # undef strnlen
 # define strnlen(_a, _b) sudo_strnlen((_a), (_b))
 #endif /* HAVE_STRNLEN */
+#ifndef HAVE_FCHOWNAT
+sudo_dso_public int sudo_fchownat(int dfd, const char *path, uid_t uid, gid_t gid, int flag);
+# undef fchownat
+# define fchownat(_a, _b, _c, _d, _e) sudo_fchownat((_a), (_b), (_c), (_d), (_e))
+#endif /* HAVE_FCHOWNAT */
 #ifndef HAVE_MEMRCHR
 sudo_dso_public void *sudo_memrchr(const void *s, int c, size_t n);
 # undef memrchr
@@ -539,14 +473,30 @@ sudo_dso_public int sudo_mkdirat(int dfd, const char *path, mode_t mode);
 # undef mkdirat
 # define mkdirat(_a, _b, _c) sudo_mkdirat((_a), (_b), (_c))
 #endif /* HAVE_MKDIRAT */
-#if !defined(HAVE_MKDTEMP) || !defined(HAVE_MKSTEMPS)
+#if !defined(HAVE_MKDTEMPAT) || !defined(HAVE_MKOSTEMPSAT)
+# if defined(HAVE_MKDTEMPAT_NP) && defined(HAVE_MKOSTEMPSAT_NP)
+#  undef mkdtempat
+#  define mkdtempat mkdtempat_np
+#  undef mkostempsat
+#  define mkostempsat mkostempsat_np
+# else
 sudo_dso_public char *sudo_mkdtemp(char *path);
-# undef mkdtemp
-# define mkdtemp(_a) sudo_mkdtemp((_a))
+#  undef mkdtemp
+#  define mkdtemp(_a) sudo_mkdtemp((_a))
+sudo_dso_public char *sudo_mkdtempat(int dfd, char *path);
+#  undef mkdtempat
+#  define mkdtempat(_a, _b) sudo_mkdtempat((_a), (_b))
+sudo_dso_public int sudo_mkostempsat(int dfd, char *path, int slen, int flags);
+#  undef mkostempsat
+#  define mkostempsat(_a, _b, _c, _d) sudo_mkostempsat((_a), (_b), (_c), (_d))
+sudo_dso_public int sudo_mkstemp(char *path);
+#  undef mkstemp
+#  define mkstemp(_a) sudo_mkstemp((_a))
 sudo_dso_public int sudo_mkstemps(char *path, int slen);
-# undef mkstemps
-# define mkstemps(_a, _b) sudo_mkstemps((_a), (_b))
-#endif /* !HAVE_MKDTEMP || !HAVE_MKSTEMPS */
+#  undef mkstemps
+#  define mkstemps(_a, _b) sudo_mkstemps((_a), (_b))
+# endif /* HAVE_MKDTEMPAT_NP || HAVE_MKOSTEMPSAT_NP */
+#endif /* !HAVE_MKDTEMPAT || !HAVE_MKOSTEMPSAT */
 #ifndef HAVE_NANOSLEEP
 sudo_dso_public int sudo_nanosleep(const struct timespec *timeout, struct timespec *remainder);
 #undef nanosleep

@@ -28,6 +28,7 @@
 #endif
 #include <pwd.h>
 #include <grp.h>
+#include <unistd.h>
 
 #include "sudo_compat.h"
 #include "sudo_fatal.h"
@@ -109,6 +110,8 @@ main(int argc, char *argv[])
 	printf("%s: %d tests run, %d errors, %d%% success rate\n",
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
     }
+    free(username);
+    free(groups);
 #endif /* HAVE_GETGROUPLIST_2 */
     return errors;
 }

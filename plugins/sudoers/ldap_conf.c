@@ -242,7 +242,8 @@ sudo_ldap_parse_uri(const struct ldap_config_str_list *uri_list)
 
     hostbuf[0] = '\0';
     STAILQ_FOREACH(entry, uri_list, entries) {
-	char *cp, *host, *last, *port, *uri;
+	char *cp, *last, *uri;
+	const char *host, *port;
 
 	buf = strdup(entry->val);
 	if (buf == NULL) {
@@ -508,7 +509,7 @@ sudo_krb5_ccname_path(const char *old_ccname)
 static bool
 sudo_check_krb5_ccname(const char *ccname)
 {
-    int fd = -1;
+    int fd;
     const char *ccname_path;
     debug_decl(sudo_check_krb5_ccname, SUDOERS_DEBUG_LDAP);
 

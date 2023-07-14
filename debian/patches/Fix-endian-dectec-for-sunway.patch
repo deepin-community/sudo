@@ -4,11 +4,11 @@ Author: Miao Changwei <miaochangwei@uniontech.com>
 ---
 Last-Update: 2022-04-22
 
---- sudo-1.9.5p2.orig/include/compat/endian.h
-+++ sudo-1.9.5p2/include/compat/endian.h
-@@ -51,7 +51,7 @@
+--- a/include/compat/endian.h
++++ b/include/compat/endian.h
+@@ -57,7 +57,7 @@
         defined(__ns3200) || defined(sun386) || defined(vax) || \
-        defined(__vax) || defined(__x86__) || \
+        defined(__vax) || defined(__x86__) || defined(__riscv) || \
         (defined(sun) && defined(__powerpc)) || \
 -       (!defined(__hpux) && defined(__ia64))
 +       (!defined(__hpux) && defined(__ia64)) || defined(__sw_64__)

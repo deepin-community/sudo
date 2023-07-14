@@ -51,7 +51,7 @@
 #endif
 
 // PVS Studio suppression
-// -V::519, 1004, 1037
+// -V::519, 547, 1004, 1037, 1048
 
 int sudolineno;			/* current sudoers line number. */
 char *sudoers;			/* sudoers file being parsed. */
@@ -675,6 +675,14 @@ ALL {
 #ifdef HAVE_SELINUX
 			    LEXTRACE("TYPE ");
 			    return TYPE;
+#else
+			    goto got_alias;
+#endif
+			}
+<INITIAL>APPARMOR_PROFILE {
+#ifdef HAVE_APPARMOR
+			    LEXTRACE("APPARMOR_PROFILE ");
+			    return APPARMOR_PROFILE;
 #else
 			    goto got_alias;
 #endif
@@ -1356,12 +1364,18 @@ sudoers_trace_print(const char *msg)
 int
 sudoers_trace_print(const char *msg)
 {
-    sudo_lbuf_append(&trace_lbuf, "%s", msg);
-    if (strchr(msg, '\n') != NULL)
-    {
-	sudo_debug_printf2(NULL, NULL, 0, SUDOERS_DEBUG_PARSER|SUDO_DEBUG_DEBUG,
-	    "%s:%d: %s", sudoers, sudolineno, trace_lbuf.buf);
-	trace_lbuf.len = 0;
+    const int sudo_debug_subsys = SUDOERS_DEBUG_PARSER;
+
+    if (sudo_debug_needed(SUDO_DEBUG_DEBUG)) {
+	sudo_lbuf_append(&trace_lbuf, "%s", msg);
+	if (strchr(msg, '\n') != NULL)
+	{
+	    /* We already parsed the newline so sudolineno is off by one. */
+	    sudo_debug_printf2(NULL, NULL, 0,
+		sudo_debug_subsys|SUDO_DEBUG_DEBUG, "sudoerslex: %s:%d: %s",
+		sudoers, sudolineno - 1, trace_lbuf.buf);
+	    trace_lbuf.len = 0;
+	}
     }
     return 0;
 }
@@ -1378,6 +1392,7 @@ sudoers_input(char *buf, yy_size_t max_size)
 {
     char *cp;
     size_t avail = sudolinebuf.len - sudolinebuf.off;
+    debug_decl(sudoers_input, SUDOERS_DEBUG_PARSER);
 
     /* Refill line buffer if needed. */
     if (avail == 0) {
@@ -1422,6 +1437,9 @@ sudoers_eof:
 	    sudolinebuf.buf[avail] = '\0';
 	}
 
+	sudo_debug_printf(SUDO_DEBUG_DEBUG, "%s:%d: %.*s", sudoers, sudolineno,
+	    (int)(avail -1), sudolinebuf.buf);
+
 	sudolinebuf.len = avail;
 	sudolinebuf.off = 0;
 	sudolinebuf.toke_start = sudolinebuf.toke_end = 0;
@@ -1432,5 +1450,5 @@ sudoers_eof:
     memcpy(buf, sudolinebuf.buf + sudolinebuf.off, avail);
     sudolinebuf.off += avail;
 
-    return avail;
+    debug_return_size_t(avail);
 }

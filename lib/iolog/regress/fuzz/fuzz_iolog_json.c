@@ -36,6 +36,8 @@
 
 #include "iolog_json.h"
 
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
 static FILE *
 open_data(const uint8_t *data, size_t size)
 {
@@ -94,7 +96,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     struct eventlog *evlog = NULL;
     FILE *fp;
 
-    setprogname("fuzz_iolog_json");
+    initprogname("fuzz_iolog_json");
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 

@@ -90,7 +90,7 @@ static int converse(int, PAM_CONST struct pam_message **,
 		    struct pam_response **, void *);
 static struct sudo_conv_callback *conv_callback;
 static struct pam_conv pam_conv = { converse, &conv_callback };
-static char *def_prompt = PASSPROMPT;
+static const char *def_prompt = PASSPROMPT;
 static bool getpass_error;
 static bool noninteractive;
 static pam_handle_t *pamh;
@@ -283,7 +283,7 @@ sudo_pam_init_quiet(struct passwd *pw, sudo_auth *auth)
 #endif /* _AIX */
 
 int
-sudo_pam_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_pam_verify(struct passwd *pw, const char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
 	const char *envccname;
     const char *s;
@@ -723,7 +723,8 @@ converse(int num_msg, PAM_CONST struct pam_message **msg,
 		if (strlen(pass) >= PAM_MAX_RESP_SIZE) {
 		    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 			"password longer than %d", PAM_MAX_RESP_SIZE);
-		    explicit_bzero(pass, strlen(pass));
+		    freezero(pass, strlen(pass));
+		    pass = NULL;
 		    goto bad;
 		}
 		reply[n].resp = pass;	/* auth_getpass() malloc's a copy */

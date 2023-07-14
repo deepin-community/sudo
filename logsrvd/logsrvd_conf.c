@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -88,13 +93,13 @@ struct logsrvd_config;
 typedef bool (*logsrvd_conf_cb_t)(struct logsrvd_config *, const char *, size_t);
 
 struct logsrvd_config_entry {
-    char *conf_str;
+    const char *conf_str;
     logsrvd_conf_cb_t setter;
     size_t offset;
 };
 
 struct logsrvd_config_section {
-    char *name;
+    const char *name;
     struct logsrvd_config_entry *entries;
 };
 
@@ -349,7 +354,7 @@ cb_iolog_dir(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(config->iolog.iolog_dir);
     if ((config->iolog.iolog_dir = strdup(path)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -362,7 +367,7 @@ cb_iolog_file(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(config->iolog.iolog_file);
     if ((config->iolog.iolog_file = strdup(path)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -503,7 +508,7 @@ append_address(struct server_address_list *addresses, const char *str,
     debug_decl(append_address, SUDO_DEBUG_UTIL);
 
     if ((copy = strdup(str)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
 
@@ -526,11 +531,11 @@ append_address(struct server_address_list *addresses, const char *str,
 
     /* Only make a single copy of the string + host for all addresses. */
     if ((sa_str = sudo_rcstr_dup(str)) == NULL)	{
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto done;
     }
     if (host != NULL && (sa_host = sudo_rcstr_dup(host)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto done;
     }
 
@@ -539,6 +544,9 @@ append_address(struct server_address_list *addresses, const char *str,
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     hints.ai_flags = AI_PASSIVE;
+#ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+    hints.ai_flags |= AI_NUMERICSERV;
+#endif
     error = getaddrinfo(host, port, &hints, &res0);
     if (error != 0) {
 	sudo_gai_warn(error, U_("%s:%s"), host ? host : "*", port);
@@ -548,7 +556,7 @@ append_address(struct server_address_list *addresses, const char *str,
 	struct server_address *addr;
 
 	if ((addr = malloc(sizeof(*addr))) == NULL) {
-	    sudo_warn(NULL);
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto done;
 	}
 	addr->sa_str = sudo_rcstr_addref(sa_str);
@@ -618,7 +626,7 @@ cb_server_pid_file(struct logsrvd_config *config, const char *str, size_t offset
 	    debug_return_bool(false);
 	}
 	if ((copy = strdup(str)) == NULL) {
-	    sudo_warn(NULL);
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    debug_return_bool(false);
 	}
     }
@@ -638,10 +646,11 @@ cb_server_log(struct logsrvd_config *config, const char *str, size_t offset)
 
     /* An empty value means to disable the server log. */
     if (*str != '\0') {
-	if (*str != '/') {
+	if (*str == '/') {
 	    log_type = SERVER_LOG_FILE;
 	    if ((copy = strdup(str)) == NULL) {
-		sudo_warn(NULL);
+		sudo_warnx(U_("%s: %s"), __func__,
+		    U_("unable to allocate memory"));
 		debug_return_bool(false);
 	    }
 	} else if (strcmp(str, "stderr") == 0) {
@@ -669,7 +678,7 @@ cb_tls_key(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(*p);
     if ((*p = strdup(path)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -683,7 +692,7 @@ cb_tls_cacert(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(*p);
     if ((*p = strdup(path)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -697,7 +706,7 @@ cb_tls_cert(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(*p);
     if ((*p = strdup(path)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -711,7 +720,7 @@ cb_tls_dhparams(struct logsrvd_config *config, const char *path, size_t offset)
 
     free(*p);
     if ((*p = strdup(path)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -725,7 +734,7 @@ cb_tls_ciphers12(struct logsrvd_config *config, const char *str, size_t offset)
 
     free(*p);
     if ((*p = strdup(str)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -739,7 +748,7 @@ cb_tls_ciphers13(struct logsrvd_config *config, const char *str, size_t offset)
 
     free(*p);
     if ((*p = strdup(str)) == NULL) {
-        sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
         debug_return_bool(false);
     }
     debug_return_bool(true);
@@ -820,7 +829,7 @@ cb_relay_dir(struct logsrvd_config *config, const char *str, size_t offset)
     debug_decl(cb_relay_dir, SUDO_DEBUG_UTIL);
 
     if ((copy = strdup(str)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
 
@@ -1023,12 +1032,11 @@ cb_logfile_path(struct logsrvd_config *config, const char *str, size_t offset)
     debug_decl(cb_logfile_path, SUDO_DEBUG_UTIL);
 
     if (*str != '/') {
-	debug_return_bool(false);
 	sudo_warnx(U_("%s: not a fully qualified path"), str);
 	debug_return_bool(false);
     }
     if ((copy = strdup(str)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
 
@@ -1045,7 +1053,7 @@ cb_logfile_time_format(struct logsrvd_config *config, const char *str, size_t of
     debug_decl(cb_logfile_time_format, SUDO_DEBUG_UTIL);
 
     if ((copy = strdup(str)) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_bool(false);
     }
 
@@ -1587,7 +1595,7 @@ logsrvd_conf_alloc(void)
     debug_decl(logsrvd_conf_alloc, SUDO_DEBUG_UTIL);
 
     if ((config = calloc(1, sizeof(*config))) == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	debug_return_ptr(NULL);
     }
 
@@ -1613,7 +1621,7 @@ logsrvd_conf_alloc(void)
     config->server.log_type = SERVER_LOG_SYSLOG;
     config->server.pid_file = strdup(_PATH_SUDO_LOGSRVD_PID);
     if (config->server.pid_file == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto bad;
     }
 
@@ -1625,20 +1633,20 @@ logsrvd_conf_alloc(void)
     if (access(DEFAULT_CA_CERT_PATH, R_OK) == 0) {
 	config->server.tls_cacert_path = strdup(DEFAULT_CA_CERT_PATH);
 	if (config->server.tls_cacert_path == NULL) {
-	    sudo_warn(NULL);
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
     if (access(DEFAULT_SERVER_CERT_PATH, R_OK) == 0) {
 	config->server.tls_cert_path = strdup(DEFAULT_SERVER_CERT_PATH);
 	if (config->server.tls_cert_path == NULL) {
-	    sudo_warn(NULL);
+	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto bad;
 	}
     }
     config->server.tls_key_path = strdup(DEFAULT_SERVER_KEY_PATH);
     if (config->server.tls_key_path == NULL) {
-	sudo_warn(NULL);
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	goto bad;
     }
     config->server.tls_verify = true;
@@ -1734,7 +1742,8 @@ logsrvd_conf_apply(struct logsrvd_config *config)
 		config->server.tls_cert_path =
 		    strdup(DEFAULT_SERVER_CERT_PATH);
 		if (config->server.tls_cert_path == NULL) {
-		    sudo_warn(NULL);
+		    sudo_warnx(U_("%s: %s"), __func__,
+			U_("unable to allocate memory"));
 		    debug_return_bool(false);
 		}
 	    }
@@ -1754,7 +1763,7 @@ logsrvd_conf_apply(struct logsrvd_config *config)
 	    config->server.tls_ciphers_v12, config->server.tls_ciphers_v13,
 	    config->server.tls_verify);
 	if (config->server.ssl_ctx == NULL) {
-	    sudo_warnx(U_("unable to initialize server TLS context"));
+	    sudo_warnx("%s", U_("unable to initialize server TLS context"));
 	    debug_return_bool(false);
 	}
 	break;
@@ -1774,7 +1783,7 @@ logsrvd_conf_apply(struct logsrvd_config *config)
 		TLS_RELAY_STR(config, tls_ciphers_v13),
 		TLS_RELAY_INT(config, tls_verify));
 	    if (config->relay.ssl_ctx == NULL) {
-		sudo_warnx(U_("unable to initialize relay TLS context"));
+		sudo_warnx("%s", U_("unable to initialize relay TLS context"));
 		debug_return_bool(false);
 	    }
 	    break;

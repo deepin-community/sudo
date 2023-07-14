@@ -6,14 +6,19 @@ Author: Li Hai <lihai@uniontech.com>
 Origin: https://gerrit.uniontech.com/plugins/gitiles/base/sudo/+/81c3b3961cc7e8211e1e6f3e16c47f93456693e8
 Last-Update: 2022-05-19
 
---- sudo-1.9.10.orig/Makefile.in
-+++ sudo-1.9.10/Makefile.in
-@@ -240,7 +240,7 @@ ChangeLog:
- 		rm -f $@.tmp; \
+--- a/Makefile.in
++++ b/Makefile.in
+@@ -243,13 +243,6 @@
+ 			mv -f $@.tmp $(srcdir)/$@; \
+ 		    fi; \
+ 		}; \
+-	    elif test -d $(srcdir)/.git && git --git-dir $(srcdir)/.git describe --tags >stamp-$@.tmp 2>&1; then \
+-		cmp stamp-$@.tmp stamp-$@ >/dev/null 2>&1 || { \
+-		    mv -f stamp-$@.tmp stamp-$@; \
+-		    if $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $@.tmp; then \
+-			mv -f $@.tmp $(srcdir)/$@; \
+-		    fi; \
+-		}; \
  	    fi; \
- 	elif test -d $(srcdir)/.git; then \
--	    $(scriptdir)/log2cl.pl -R $(srcdir)/.git > $(srcdir)/$@; \
-+	    echo "ChangeLog data not available" > $(srcdir)/$@; \
- 	elif test ! -f $(srcdir)/$@; then \
- 	    echo "ChangeLog data not available" > $(srcdir)/$@; \
+ 	    rm -f $@.tmp stamp-$@.tmp; \
  	fi

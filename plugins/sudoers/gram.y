@@ -2,7 +2,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2013, 2014-2021
+ * Copyright (c) 1996, 1998-2005, 2007-2013, 2014-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -43,16 +43,18 @@
 #define this_lineno	(sudoerschar == '\n' ? sudolineno - 1 : sudolineno)
 
 // PVS Studio suppression
-// -V::1037, 1042
+// -V::560, 592, 1037, 1042
 
 /*
  * Globals
  */
 bool sudoers_warnings = true;
+bool sudoers_recovery = true;
 bool sudoers_strict = false;
 bool parse_error = false;
-int errorlineno = -1;
-char *errorfile = NULL;
+
+/* Optional logging function for parse errors. */
+sudoers_logger_t sudoers_error_hook;
 
 static int alias_line, alias_column;
 
@@ -94,6 +96,7 @@ static void alias_error(const char *name, int errnum);
     struct command_options options;
     struct cmndtag tag;
     char *string;
+    const char *cstring;
     int tok;
 }
 
@@ -143,6 +146,7 @@ static void alias_error(const char *name, int errnum);
 %token <tok>	 CWD			/* working directory for command */
 %token <tok>	 TYPE			/* SELinux type */
 %token <tok>	 ROLE			/* SELinux role */
+%token <tok>	 APPARMOR_PROFILE	/* AppArmor profile */
 %token <tok>	 PRIVS			/* Solaris privileges */
 %token <tok>	 LIMITPRIVS		/* Solaris limit privileges */
 %token <tok>	 CMND_TIMEOUT		/* command timeout */
@@ -181,6 +185,7 @@ static void alias_error(const char *name, int errnum);
 %type <string>	  chrootspec
 %type <string>	  rolespec
 %type <string>	  typespec
+%type <string>	  apparmor_profilespec
 %type <string>	  privsspec
 %type <string>	  limitprivsspec
 %type <string>	  timeoutspec
@@ -190,7 +195,7 @@ static void alias_error(const char *name, int errnum);
 %type <string>	  includedir
 %type <digest>	  digestspec
 %type <digest>	  digestlist
-%type <string>	  reserved_word
+%type <cstring>	  reserved_word
 
 %%
 
@@ -211,22 +216,18 @@ entry		:	'\n' {
 			    yyerrok;
 			}
 		|	include {
-			    if (!push_include($1, false)) {
-				parser_leak_remove(LEAK_PTR, $1);
-				free($1);
-				YYERROR;
-			    }
+			    const bool success = push_include($1, false);
 			    parser_leak_remove(LEAK_PTR, $1);
 			    free($1);
+			    if (!success && !sudoers_recovery)
+				YYERROR;
 			}
 		|	includedir {
-			    if (!push_include($1, true)) {
-				parser_leak_remove(LEAK_PTR, $1);
-				free($1);
-				YYERROR;
-			    }
+			    const bool success = push_include($1, true);
 			    parser_leak_remove(LEAK_PTR, $1);
 			    free($1);
+			    if (!success && !sudoers_recovery)
+				YYERROR;
 			}
 		|	userlist privileges '\n' {
 			    if (!add_userspec($1, $2)) {
@@ -533,6 +534,10 @@ cmndspec	:	runasspec options cmndtag digcmnd {
 			    cs->type = $2.type;
 			    parser_leak_remove(LEAK_PTR, $2.type);
 #endif
+#ifdef HAVE_APPARMOR
+			    cs->apparmor_profile = $2.apparmor_profile;
+			    parser_leak_remove(LEAK_PTR, $2.apparmor_profile);
+#endif
 #ifdef HAVE_PRIV_SET
 			    cs->privs = $2.privs;
 			    parser_leak_remove(LEAK_PTR, $2.privs);
@@ -687,6 +692,11 @@ typespec	:	TYPE '=' WORD {
 			}
 		;
 
+apparmor_profilespec	:	APPARMOR_PROFILE '=' WORD {
+				$$ = $3;
+			}
+		;
+
 privsspec	:	PRIVS '=' WORD {
 			    $$ = $3;
 			}
@@ -782,6 +792,7 @@ reserved_word	:	ALL		{ $$ = "ALL"; }
 		|	TYPE		{ $$ = "TYPE"; }
 		|	PRIVS		{ $$ = "PRIVS"; }
 		|	LIMITPRIVS	{ $$ = "LIMITPRIVS"; }
+		|	APPARMOR_PROFILE { $$ = "APPARMOR_PROFILE"; }
 		;
 
 reserved_alias	:	reserved_word {
@@ -845,6 +856,13 @@ options		:	/* empty */ {
 			    parser_leak_remove(LEAK_PTR, $$.type);
 			    free($$.type);
 			    $$.type = $2;
+#endif
+			}
+		|	options apparmor_profilespec {
+#ifdef HAVE_APPARMOR
+			    parser_leak_remove(LEAK_PTR, $$.apparmor_profile);
+			    free($$.apparmor_profile);
+			    $$.apparmor_profile = $2;
 #endif
 			}
 		|	options privsspec {
@@ -959,6 +977,27 @@ cmnd		:	ALL {
 			    parser_leak_remove(LEAK_PTR, $1.cmnd);
 			    parser_leak_remove(LEAK_PTR, $1.args);
 			    parser_leak_add(LEAK_MEMBER, $$);
+			}
+		|	WORD {
+			    if (strcmp($1, "list") == 0) {
+				struct sudo_command *c;
+
+				if ((c = new_command($1, NULL)) == NULL) {
+				    sudoerserror(N_("unable to allocate memory"));
+				    YYERROR;
+				}
+				$$ = new_member((char *)c, COMMAND);
+				if ($$ == NULL) {
+				    free(c);
+				    sudoerserror(N_("unable to allocate memory"));
+				    YYERROR;
+				}
+				parser_leak_remove(LEAK_PTR, $1);
+				parser_leak_add(LEAK_MEMBER, $$);
+			    } else {
+				sudoerserror(N_("expected a fully-qualified path name"));
+				YYERROR;
+			    }
 			}
 		;
 
@@ -1168,21 +1207,22 @@ group		:	ALIAS {
 void
 sudoerserrorf(const char *fmt, ...)
 {
+    const int column = sudolinebuf.toke_start + 1;
+    va_list ap;
     debug_decl(sudoerserrorf, SUDOERS_DEBUG_PARSER);
 
-    /* Save the line the first error occurred on. */
-    if (errorlineno == -1) {
-	errorlineno = this_lineno;
-	sudo_rcstr_delref(errorfile);
-	errorfile = sudo_rcstr_addref(sudoers);
+    if (sudoers_error_hook != NULL) {
+	va_start(ap, fmt);
+	sudoers_error_hook(sudoers, this_lineno, column, fmt, ap);
+	va_end(ap);
     }
     if (sudoers_warnings && fmt != NULL) {
 	LEXTRACE("<*> ");
 #ifndef TRACELEXER
 	if (trace_print == NULL || trace_print == sudoers_trace_print) {
-	    char *s, *tofree = NULL;
+	    char *tofree = NULL;
+	    const char *s;
 	    int oldlocale;
-	    va_list ap;
 
 	    /* Warnings are displayed in the user's locale. */
 	    sudoers_setlocale(SUDOERS_LOCALE_USER, &oldlocale);
@@ -1192,10 +1232,12 @@ sudoerserrorf(const char *fmt, ...)
 		/* Optimize common case, a single string. */
 		s = _(va_arg(ap, char *));
 	    } else {
-		if (vasprintf(&s, fmt, ap) != -1)
-		    tofree = s;
-		else
+		if (vasprintf(&tofree, _(fmt), ap) != -1) {
+		    s = tofree;
+		} else {
 		    s = _("syntax error");
+		    tofree = NULL;
+		}
 	    }
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("%s:%d:%d: %s\n"), sudoers,
 		this_lineno, (int)sudolinebuf.toke_start + 1, s);
@@ -1236,11 +1278,15 @@ sudoerserror(const char *s)
 	sudoers_errstr = NULL;
     }
 
-    // -V:sudoerserror:575, 618
+#pragma pvs(push)
+#pragma pvs(disable: 575, 618)
+
     if (s == NULL)
 	sudoerserrorf(NULL);
     else
 	sudoerserrorf("%s", s);
+
+#pragma pvs(pop)
 }
 
 static void
@@ -1420,7 +1466,8 @@ add_userspec(struct member *members, struct privilege *privs)
 	    "unable to allocate memory");
 	debug_return_bool(false);
     }
-    u->line = this_lineno;
+    /* We already parsed the newline so sudolineno is off by one. */
+    u->line = sudolineno - 1;
     u->column = sudolinebuf.toke_start + 1;
     u->file = sudo_rcstr_addref(sudoers);
     parser_leak_remove(LEAK_MEMBER, members);
@@ -1753,9 +1800,6 @@ init_parser(const char *path, bool quiet, bool strict)
     }
 
     parse_error = false;
-    errorlineno = -1;
-    sudo_rcstr_delref(errorfile);
-    errorfile = NULL;
     sudoers_warnings = !quiet;
     sudoers_strict = strict;
 
@@ -1780,6 +1824,9 @@ init_options(struct command_options *opts)
 #ifdef HAVE_PRIV_SET
     opts->privs = NULL;
     opts->limitprivs = NULL;
+#endif
+#ifdef HAVE_APPARMOR
+    opts->apparmor_profile = NULL;
 #endif
 }
 
@@ -1893,10 +1940,10 @@ found:
 #endif /* NO_LEAKS */
 }
 
-void
+#ifdef NO_LEAKS
+static void
 parser_leak_free(void)
 {
-#ifdef NO_LEAKS
     struct parser_leak_entry *entry;
     void *next;
     debug_decl(parser_leak_run, SUDOERS_DEBUG_PARSER);
@@ -1978,8 +2025,8 @@ parser_leak_free(void)
     }
 
     debug_return;
-#endif /* NO_LEAKS */
 }
+#endif /* NO_LEAKS */
 
 void
 parser_leak_init(void)

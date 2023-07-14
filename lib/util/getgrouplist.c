@@ -66,7 +66,11 @@ int
 sudo_getgrouplist2_v1(const char *name, GETGROUPS_T basegid,
     GETGROUPS_T **groupsp, int *ngroupsp)
 {
+#ifdef __APPLE__
+    int *groups = (int *)*groupsp;
+#else
     GETGROUPS_T *groups = *groupsp;
+#endif
     int ngroups;
 #ifndef HAVE_GETGROUPLIST_2
     int grpsize, tries;
@@ -234,7 +238,7 @@ str2grp(const char *instr, int inlen, void *ent, char *buf, int buflen)
     /* Check for YP inclusion/exclusion entries. */
     if (*cp == '+' || *cp == '-') {
 	/* Only the name is required for YP inclusion/exclusion entries. */
-	grp->gr_passwd = "";
+	grp->gr_passwd = (char *)"";
 	grp->gr_gid = 0;
 	grp->gr_mem = NULL;
 	yp = 1;

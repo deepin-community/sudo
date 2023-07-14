@@ -3,7 +3,7 @@
 .\" SPDX-License-Identifier: ISC
 .\"
 .\" Copyright (c) 2019-2021 Robert Manner <robert.manner@oneidentity.com>
-.\" Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+.\" Copyright (c) 2019-2023 Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -17,7 +17,7 @@
 .\" ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
-.TH "SUDO_PLUGIN_PYTHON" "5" "February 16, 2022" "Sudo @PACKAGE_VERSION@" "File Formats Manual"
+.TH "SUDO_PLUGIN_PYTHON" "5" "January 16, 2023" "Sudo @PACKAGE_VERSION@" "File Formats Manual"
 .nh
 .if n .ad l
 .SH "NAME"
@@ -34,7 +34,7 @@ sudo_plugin(@mansectform@).
 .PP
 The supported plugins types are:
 .PP
-.RS 4n
+.RS 1n
 .PD 0
 .TP 3n
 \fB\(bu\fR
@@ -96,9 +96,9 @@ When the plugin loads,
 will create an instance of this class and call the methods.
 The actual methods required depent on the type of the plugin,
 but most return an
-\(lqint\(rq
+\fIint\fR
 result code, as documented in
-sudo_plugin(@mansectsu@),
+sudo_plugin(@mansectform@),
 that indicates whether or not the method was successful.
 The Python sudo module defines the following constants to improve readability:
 .RS 4n
@@ -120,12 +120,12 @@ l l.
 .RE
 .PP
 If a function returns
-\fINone\fR
+\fRNone\fR
 (for example, if it does not call return),
 it will be considered to have returned
 \fRsudo.RC.OK\fR.
-If an exception is raised (other than sudo.PluginException), the backtrace will be
-shown to the user and the plugin function will return
+If an exception is raised (other than sudo.PluginException), the
+backtrace will be shown to the user and the plugin function will return
 \fRsudo.RC.ERROR\fR.
 If that is not acceptable, you must catch the exception and handle it yourself.
 .PP
@@ -151,7 +151,7 @@ Running the Python interpreter and bridging between C and Python is
 handled by the
 \fBsudo\fR
 plugin
-\fRpython_plugin.so\fR.
+\fI@python_plugin@\fR.
 This shared object can be loaded like any other dynamic
 \fBsudo\fR
 plugin and should receive the path and the class name of the Python
@@ -162,10 +162,10 @@ sudo.conf(@mansectform@):
 .nf
 .sp
 .RS 4n
-Plugin python_policy python_plugin.so ModulePath=<path> ClassName=<class>
-Plugin python_io python_plugin.so ModulePath=<path> ClassName=<class>
-Plugin python_audit python_plugin.so ModulePath=<path> ClassName=<class>
-Plugin python_approval python_plugin.so ModulePath=<path> ClassName=<class>
+Plugin python_policy @python_plugin@ ModulePath=<path> ClassName=<class>
+Plugin python_io @python_plugin@ ModulePath=<path> ClassName=<class>
+Plugin python_audit @python_plugin@ ModulePath=<path> ClassName=<class>
+Plugin python_approval @python_plugin@ ModulePath=<path> ClassName=<class>
 .RE
 .fi
 .PP
@@ -175,7 +175,7 @@ file:
 .nf
 .sp
 .RS 4n
-Defaults group_plugin="python_plugin.so ModulePath=<path> ClassName=<class>"
+Defaults group_plugin="@python_plugin@ ModulePath=<path> ClassName=<class>"
 .RE
 .fi
 .PP
@@ -184,7 +184,18 @@ The plugin arguments are as follows:
 ModulePath
 The path of a python file which contains the class of the sudo Python plugin.
 It must be either an absolute path or a path relative to the sudo Python plugin
-directory: "@plugindir@/python".
+directory,
+\fI@plugindir@/python\fR.
+The parent directory of
+\fIModulePath\fR
+will be appended to Python's module search path (there is currently no
+way to force Python to load a module from a fully-qualified path).
+It is good practice to use a prefix for the module file that is unlikely
+to conflict with other installed Python modules, for example,
+\fIsudo_policy.py\fR.
+Otherwise, if the there is an installed Python module with the same
+file name as the sudo Python plugin file (without the directory),
+the wrong file will be loaded.
 .TP 6n
 ClassName
 (Optional.) The name of the class implementing the sudo Python plugin.
@@ -199,7 +210,7 @@ For example:
 .nf
 .sp
 .RS 4n
-Plugin python_policy python_plugin.so ModulePath=<path> ClassName=<class>
+Plugin python_policy @python_plugin@ ModulePath=<path> ClassName=<class>
 .RE
 .fi
 .PP
@@ -208,7 +219,7 @@ sudo.conf(@mansectform@).
 .PP
 A policy plugin may have the following member functions:
 .TP 6n
-\fBconstructor\fR
+\fIconstructor\fR
 .nf
 .RS 6n
 __init__(self, user_env: Tuple[str, ...], settings: Tuple[str, ...],
@@ -224,7 +235,9 @@ as member variables in the object.
 .sp
 The constructor matches the
 \fBopen\fR()
-function in the C sudo plugin API.
+function in the C
+\fBsudo\fR
+plugin API.
 .sp
 The function arguments are as follows:
 .TP 6n
@@ -268,7 +281,7 @@ documentation in
 sudo_plugin(@mansectform@).
 .RE
 .TP 6n
-\fBcheck_policy\fR
+\fIcheck_policy\fR
 .nf
 .RS 6n
 check_policy(self, argv: Tuple[str, ...], env_add: Tuple[str, ...])
@@ -356,7 +369,7 @@ format.
 .RE
 .PD
 .TP 6n
-\fBinit_session\fR
+\fIinit_session\fR
 .nf
 .RS 6n
 init_session(self, user_pwd: Tuple, user_env: Tuple[str, ...])
@@ -376,8 +389,9 @@ The function arguments are as follows:
 .TP 6n
 \fIuser_pwd\fR
 A tuple describing the user's passwd entry.
-Convertible to pwd.struct_passwd or
-\fINone\fR
+Convertible to
+\fIpwd.struct_passwd or\fR
+\fRNone\fR
 if the user is not present in the password database.
 .sp
 Example conversion:
@@ -426,7 +440,7 @@ If this is omitted, no changes will be made to
 .RE
 .PD
 .TP 6n
-\fBlist\fR
+\fIlist\fR
 .nf
 .RS 6n
 list(self, argv: Tuple[str, ...], is_verbose: int, user: str)
@@ -440,7 +454,7 @@ The function arguments are as follows:
 .TP 6n
 \fIargv\fR
 If not set to
-\fINone\fR,
+\fRNone\fR,
 an argument vector describing a command the user wishes to check
 against the policy.
 .TP 6n
@@ -450,14 +464,14 @@ Flag indicating whether to list in verbose mode or not.
 \fIuser\fR
 The name of a different user to list privileges for if the policy allows it.
 If
-\fINone\fR,
+\fRNone\fR,
 the plugin should list the privileges of the invoking user.
 .PD 0
 .PP
 .RE
 .PD
 .TP 6n
-\fBvalidate\fR
+\fIvalidate\fR
 .nf
 .RS 6n
 validate(self)
@@ -468,7 +482,7 @@ validate(self)
 For policy plugins that cache authentication credentials, this function is used to validate and cache the credentials (optional).
 .RE
 .TP 6n
-\fBinvalidate\fR
+\fIinvalidate\fR
 .nf
 .RS 6n
 invalidate(self, remove: int)
@@ -488,7 +502,7 @@ invalidating them.
 .RE
 .PD
 .TP 6n
-\fBshow_version\fR
+\fIshow_version\fR
 .nf
 .RS 6n
 show_version(self, is_verbose: int)
@@ -513,7 +527,7 @@ is run as the root user.
 .RE
 .PD
 .TP 6n
-\fBclose\fR
+\fIclose\fR
 .br
 .nf
 .RS 6n
@@ -526,7 +540,9 @@ Called when a command finishes executing.
 .sp
 Works the same as the
 \fBclose\fR()
-function in the C sudo plugin API, except that it only gets called if
+function in the C
+\fBsudo\fR
+plugin API, except that it only gets called if
 \fBsudo\fR
 attempts to execute the command.
 .sp
@@ -552,14 +568,16 @@ To try it, register it by adding the following lines to
 .nf
 .sp
 .RS 0n
-Plugin python_policy python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_policy_plugin.py \e
+Plugin python_policy @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_policy_plugin.py \e
     ClassName=SudoPolicyPlugin
 .RE
 .fi
 .PP
-Be aware, however, that you cannot enable the Python policy plugin
-in addition to another policy plugin, such as
+Only one policy plugin can be enabled at a time so you must disable
+any other policy plugin listed in
+\fI@sysconfdir@/sudo.conf\fR,
+such as
 sudoers(@mansectform@).
 .SS "I/O plugin API"
 I/O plugins must be registered in
@@ -568,7 +586,7 @@ For example:
 .nf
 .sp
 .RS 4n
-Plugin python_io python_plugin.so ModulePath=<path> ClassName=<class>
+Plugin python_io @python_plugin@ ModulePath=<path> ClassName=<class>
 .RE
 .fi
 .PP
@@ -577,7 +595,7 @@ Currently only 8 python I/O plugins can be loaded at once.
 .PP
 An I/O plugin may have the following member functions:
 .TP 6n
-\fBconstructor\fR
+\fIconstructor\fR
 .nf
 .RS 6n
 __init__(self, user_env: Tuple[str, ...], settings: Tuple[str, ...],
@@ -593,7 +611,9 @@ as member variables in the object.
 .sp
 The constructor matches the
 \fBopen\fR()
-function in the C sudo plugin API.
+function in the C
+\fBsudo\fR
+plugin API.
 .sp
 The function arguments are as follows:
 .TP 6n
@@ -637,7 +657,7 @@ documentation in
 sudo_plugin(@mansectform@).
 .RE
 .TP 6n
-\fBopen\fR
+\fIopen\fR
 .nf
 .RS 6n
 open(self, argv: Tuple[str, ...],
@@ -650,13 +670,15 @@ Receives the command the user wishes to run.
 .sp
 Works the same as the
 \fBopen\fR()
-function in the C sudo plugin API except that:
+function in the C
+\fBsudo\fR
+plugin API except that:
 .sp
-.RS 10n
+.RS 7n
 .PD 0
 .TP 3n
 \fB\(bu\fR
-It only gets called before the user would execute some command
+It only gets called when there is a command to be executed
 (and not for a version query for example).
 .TP 3n
 \fB\(bu\fR
@@ -697,7 +719,7 @@ If the function returns
 no I/O will be sent to the plugin.
 .RE
 .TP 6n
-\fBlog_ttyin\fR, \fBlog_ttyout\fR, \fBlog_stdin\fR, \fBlog_stdout\fR, \fBlog_stderr\fR
+\fIlog_ttyin\fR, \fIlog_ttyout\fR, \fIlog_stdin\fR, \fIlog_stdout\fR, \fIlog_stderr\fR
 .nf
 .RS 6n
 log_ttyin(self, buf: str) -> int
@@ -725,8 +747,8 @@ constants.
 .sp
 If
 \fRsudo.RC.ERROR\fR
-is returned, the running command will be terminated and all of the plugin's logging
-functions will be disabled.
+is returned, the running command will be terminated and all of the
+plugin's logging functions will be disabled.
 Other I/O logging plugins will still receive any remaining
 input or output that has not yet been processed.
 .sp
@@ -740,7 +762,7 @@ the command will be terminated and the data will not be written to the
 terminal, though it will still be sent to any other I/O logging plugins.
 .RE
 .TP 6n
-\fBchange_winsize\fR
+\fIchange_winsize\fR
 .nf
 .RS 6n
 change_winsize(self, line: int, cols: int) -> int
@@ -761,7 +783,7 @@ The number of columns of the terminal.
 .RE
 .PD
 .TP 6n
-\fBlog_suspend\fR
+\fIlog_suspend\fR
 .nf
 .RS 6n
 log_suspend(self, signo: int) -> int
@@ -782,7 +804,7 @@ if the command was resumed.
 .RE
 .PD
 .TP 6n
-\fBshow_version\fR
+\fIshow_version\fR
 .nf
 .RS 6n
 show_version(self, is_verbose: int)
@@ -806,7 +828,7 @@ is run as the root user.
 .RE
 .PD
 .TP 6n
-\fBclose\fR
+\fIclose\fR
 .br
 .nf
 .RS 6n
@@ -814,11 +836,13 @@ close(self, exit_status: int, error: int) -> None
 .RE
 .fi
 .RS 6n
-Called when a command execution finished.
+Called when a command finishes execution.
 .sp
 Works the same as the
 \fBclose\fR()
-function in the C sudo plugin API, except that it only gets called if
+function in the C
+\fBsudo\fR
+plugin API, except that it only gets called if
 \fBsudo\fR
 attempts to execute the command.
 .sp
@@ -838,14 +862,14 @@ system call, otherwise 0.
 .RE
 .PD
 .SS "I/O plugin example"
-Sudo ships a Python I/O plugin example.
+Sudo ships with a Python I/O plugin example.
 To try it, register it by adding the following lines to
 \fI@sysconfdir@/sudo.conf\fR:
 .nf
 .sp
 .RS 4n
-Plugin python_io python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_io_plugin.py \e
+Plugin python_io @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_io_plugin.py \e
     ClassName=SudoIOPlugin
 .RE
 .fi
@@ -856,16 +880,16 @@ For example:
 .nf
 .sp
 .RS 4n
-Plugin python_audit python_plugin.so ModulePath=<path> ClassName=<class>
+Plugin python_audit @python_plugin@ ModulePath=<path> ClassName=<class>
 .RE
 .fi
 .PP
 Sudo supports loading multiple audit plugins.
 Currently only 8 python audit plugins can be loaded at once.
 .PP
-An audit plugin may have the following member functions (all of them are optional):
+An audit plugin may have the following member functions (all of which are optional):
 .TP 6n
-\fBconstructor\fR
+\fIconstructor\fR
 .nf
 .RS 6n
 __init__(self, user_env: Tuple[str, ...], settings: Tuple[str, ...],
@@ -879,7 +903,9 @@ as member variables in the object.
 .sp
 The constructor matches the
 \fBopen\fR()
-function in the C sudo plugin API.
+function in the C
+\fBsudo\fR
+plugin API.
 .sp
 The function arguments are as follows:
 .TP 6n
@@ -915,7 +941,7 @@ format.
 .RE
 .PD
 .TP 6n
-\fBopen\fR
+\fIopen\fR
 .nf
 .RS 6n
 open(self, submit_optind: int,
@@ -938,7 +964,7 @@ The argument vector sudo was invoked with, including all command line options.
 .RE
 .PD
 .TP 6n
-\fBclose\fR
+\fIclose\fR
 .br
 .nf
 .RS 6n
@@ -953,7 +979,9 @@ The function arguments are as follows:
 .TP 6n
 \fIstatus_type\fR
 The type of status being passed.
-One of the sudo.EXIT_REASON.* constants.
+One of the
+\fRsudo.EXIT_REASON.*\fR
+constants.
 .TP 6n
 \fIstatus\fR
 Depending on the value of
@@ -962,11 +990,11 @@ this value is either
 ignored, the command's exit status as returned by the
 wait(2)
 system call, the value of
-\fRerrno\fR
+\fIerrno\fR
 set by the
 execve(2)
 system call, or the value of
-\fRerrno\fR
+\fIerrno\fR
 resulting from an error in the
 \fBsudo\fR
 front-end.
@@ -975,7 +1003,7 @@ front-end.
 .RE
 .PD
 .TP 6n
-\fBshow_version\fR
+\fIshow_version\fR
 .nf
 .RS 6n
 show_version(self, is_verbose: int) -> int
@@ -1000,7 +1028,7 @@ is run as the root user.
 .RE
 .PD
 .TP 6n
-\fBaccept\fR
+\fIaccept\fR
 .nf
 .RS 6n
 accept(self, plugin_name: str, plugin_type: int, command_info: Tuple[str, ...],
@@ -1064,7 +1092,7 @@ The environment the command will be run with.
 .RE
 .PD
 .TP 6n
-\fBreject\fR
+\fIreject\fR
 .nf
 .RS 6n
 reject(self, plugin_name: str, plugin_type: int, audit_msg: str,
@@ -1098,7 +1126,7 @@ front-end.
 audit_msg
 An optional string describing the reason the command was rejected by the plugin.
 If the plugin did not provide a reason, audit_msg will be
-\fINone\fR
+\fRNone\fR.
 .TP 6n
 command_info
 A vector of information describing the rejected command.
@@ -1110,7 +1138,7 @@ manual for possible values.
 .RE
 .PD
 .TP 6n
-\fBerror\fR
+\fIerror\fR
 .br
 .nf
 .RS 6n
@@ -1142,7 +1170,7 @@ front-end.
 audit_msg
 An optional string describing the plugin error.
 If the plugin did not provide a description, it will be
-\fINone\fR
+\fRNone\fR.
 .TP 6n
 command_info
 A vector of information describing the command.
@@ -1154,14 +1182,14 @@ manual for possible values.
 .RE
 .PD
 .SS "Audit plugin example"
-Sudo ships a Python Audit plugin example.
+Sudo ships with a Python Audit plugin example.
 To try it, register it by adding the following lines to
 \fI@sysconfdir@/sudo.conf\fR:
 .nf
 .sp
 .RS 4n
-Plugin python_audit python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_audit_plugin.py \e
+Plugin python_audit @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_audit_plugin.py \e
     ClassName=SudoAuditPlugin
 .RE
 .fi
@@ -1174,7 +1202,7 @@ For example:
 .nf
 .sp
 .RS 4n
-Plugin python_approval python_plugin.so ModulePath=<path> ClassName=<class>
+Plugin python_approval @python_plugin@ ModulePath=<path> ClassName=<class>
 .RE
 .fi
 .PP
@@ -1183,7 +1211,7 @@ Currently only 8 python approval plugins can be loaded at once.
 .PP
 An approval plugin may have the following member functions:
 .TP 6n
-\fBconstructor\fR
+\fIconstructor\fR
 .nf
 .RS 6n
 __init__(self, user_env: Tuple[str, ...], settings: Tuple[str, ...],
@@ -1199,7 +1227,9 @@ as member variables in the object.
 .sp
 The constructor matches the
 \fBopen\fR()
-function in the C sudo plugin API.
+function in the C
+\fBsudo\fR
+plugin API.
 .sp
 The function arguments are as follows:
 .TP 6n
@@ -1243,7 +1273,7 @@ The argument vector sudo was invoked with, including all command line options.
 .RE
 .PD
 .TP 6n
-\fBshow_version\fR
+\fIshow_version\fR
 .nf
 .RS 6n
 show_version(self, is_verbose: int) -> int
@@ -1251,10 +1281,11 @@ show_version(self, is_verbose: int) -> int
 .fi
 .RS 6n
 .sp
-Display the version. (Same as for all the other plugins.)
+Display the version.
+(Same as for all the other plugins.)
 .RE
 .TP 6n
-\fBcheck\fR
+\fIcheck\fR
 .br
 .nf
 .RS 6n
@@ -1295,14 +1326,14 @@ The environment the command will be run with.
 .RE
 .PD
 .SS "Approval plugin example"
-Sudo ships a Python Approval plugin example.
+Sudo ships with a Python Approval plugin example.
 To try it, register it by adding the following lines to
 \fI@sysconfdir@/sudo.conf\fR:
 .nf
 .sp
 .RS 4n
-Plugin python_approval python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_approval_plugin.py \e
+Plugin python_approval @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_approval_plugin.py \e
     ClassName=BusinessHoursApprovalPlugin
 .RE
 .fi
@@ -1317,7 +1348,7 @@ For example:
 .nf
 .sp
 .RS 4n
-Defaults group_plugin="python_plugin.so ModulePath=<path> ClassName=<class>"
+Defaults group_plugin="@python_plugin@ ModulePath=<path> ClassName=<class>"
 .RE
 .fi
 .PP
@@ -1326,7 +1357,7 @@ Currently, only a single group plugin can be registered in
 .PP
 A group provider plugin may have the following member functions:
 .TP 6n
-\fBconstructor\fR
+\fIconstructor\fR
 .nf
 .RS 6n
 __init__(self, args: Tuple[str, ...], version: str)
@@ -1355,7 +1386,7 @@ The version of the Python Group Plugin API.
 .RE
 .PD
 .TP 6n
-\fBquery\fR
+\fIquery\fR
 .br
 .nf
 .RS 6n
@@ -1391,15 +1422,15 @@ is not present in the password database,
 will be
 \fRNULL\fR.
 .SS "Group plugin example"
-Sudo ships a Python group plugin example.
+Sudo ships with a Python group plugin example.
 To try it, register it in the
 \fIsudoers\fR
 file by adding the following lines:
 .nf
 .sp
 .RS 4n
-Defaults group_plugin="python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_group_plugin.py \e
+Defaults group_plugin="@python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_group_plugin.py \e
     ClassName=SudoGroupPlugin"
 .RE
 .fi
@@ -1408,7 +1439,7 @@ The example plugin will tell
 \fBsudo\fR
 that the user
 \fItest\fR
-is part of the non-unix group
+is part of the non-Unix group
 \fImygroup\fR.
 If you add a rule that uses this group, it will affect the
 \fItest\fR
@@ -1433,16 +1464,18 @@ written in Python.
 A Python plugin can interact with the user using the
 \fBsudo.conv\fR()
 function which displays one or more messages described by the
-\fBsudo.ConvMessage\fR
+\fRsudo.ConvMessage\fR
 class.
 This is the Python equivalent of the
 \fBconversation\fR()
-function in the C sudo plugin API.
+function in the C
+\fBsudo\fR
+plugin API.
 A plugin should not attempt to read directly from the standard input or
 the user's tty (neither of which are guaranteed to exist).
 .PP
 The
-\fBsudo.ConvMessage\fR
+\fRsudo.ConvMessage\fR
 class specifies how the user interaction should occur:
 .nf
 .sp
@@ -1451,7 +1484,7 @@ sudo.ConvMessage(msg_type: int, msg: str, timeout: int)
 .RE
 .fi
 .PP
-\fBsudo.ConvMessage\fR
+\fRsudo.ConvMessage\fR
 member variables:
 .TP 6n
 \fImsg_type\fR
@@ -1463,7 +1496,7 @@ constants below.
 \fImsg\fR
 The message to display to the user.
 The caller must include a trailing newline in
-\fRmsg\fR
+\fImsg\fR
 if one is to be displayed.
 .TP 6n
 \fItimeout\fR
@@ -1478,29 +1511,29 @@ The default is to wait forever (no timeout).
 .PP
 To specify the message type, the following constants are available:
 .PP
-.RS 4n
+.RS 1n
 .PD 0
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.PROMPT_ECHO_OFF
+\fRsudo.CONV.PROMPT_ECHO_OFF\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.PROMPT_ECHO_ON
+\fRsudo.CONV.PROMPT_ECHO_ON\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.ERROR_MSG
+\fRsudo.CONV.ERROR_MSG\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.INFO_MSG
+\fRsudo.CONV.INFO_MSG\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.PROMPT_MASK
+\fRsudo.CONV.PROMPT_MASK\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.PROMPT_ECHO_OK
+\fRsudo.CONV.PROMPT_ECHO_OK\fR
 .TP 3n
 \fB\(bu\fR
-sudo.CONV.PREFER_TTY
+\fRsudo.CONV.PREFER_TTY\fR
 .RE
 .PD
 .PP
@@ -1523,7 +1556,7 @@ The function arguments are as follows:
 .TP 6n
 \fImessage(s)\fR
 One of more messages (of type
-\fBsudo.ConvMessage\fR),
+\fRsudo.ConvMessage\fR),
 each describing a conversation.
 At least one message is required.
 .TP 6n
@@ -1543,11 +1576,11 @@ The
 \fBsudo.conv\fR()
 function can raise the following exceptions:
 .TP 6n
-\fBsudo.SudoException\fR
+\fRsudo.SudoException\fR
 If the conversation fails, for example when the conversation function is not
 available.
 .TP 6n
-\fBsudo.ConversationInterrupted\fR
+\fRsudo.ConversationInterrupted\fR
 If the conversation function returns an error, e.g., the timeout passed
 or the user interrupted the conversation by pressing control-C.
 .SS "Conversation example"
@@ -1557,8 +1590,8 @@ To try it, register it by adding the following lines to
 .nf
 .sp
 .RS 4n
-Plugin python_io python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_conversation.py \e
+Plugin python_io @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_conversation.py \e
     ClassName=ReasonLoggerIOPlugin
 .RE
 .fi
@@ -1607,18 +1640,18 @@ debug system.
 \fIEnabling debugging in sudo.conf\fR
 .PP
 To enable debug messages, add a
-\fRDebug\fR
+\fIDebug\fR
 line to
 sudo.conf(@mansectform@)
 with the program set to
-\fIpython_plugin.so\fR.
+\fI@python_plugin@\fR.
 For example, to store debug output in
 \fI@log_dir@/sudo_python_debug\fR,
 use a line like the following:
 .nf
 .sp
 .RS 4n
-Debug python_plugin.so @log_dir@/sudo_python_debug \e
+Debug @python_plugin@ @log_dir@/sudo_python_debug \e
     plugin@trace,c_calls@trace
 .RE
 .fi
@@ -1633,7 +1666,7 @@ calls, use:
 .nf
 .sp
 .RS 4n
-Debug python_plugin.so @log_dir@/sudo_python_debug plugin@trace
+Debug @python_plugin@ @log_dir@/sudo_python_debug plugin@trace
 .RE
 .fi
 .PP
@@ -1699,21 +1732,21 @@ l l l.
 .PP
 \fBsudo.conf name\fR	\fBPython constant\fR	\fBdescription\fR
 .PP
-crit	sudo.DEBUG.CRIT	only critical messages
+crit	\fRsudo.DEBUG.CRIT\fR	only critical messages
 .PP
-err	sudo.DEBUG.ERROR	
+err	\fRsudo.DEBUG.ERROR\fR	
 .PP
-warn	sudo.DEBUG.WARN	
+warn	\fRsudo.DEBUG.WARN\fR	
 .PP
-notice	sudo.DEBUG.NOTICE	
+notice	\fRsudo.DEBUG.NOTICE\fR	
 .PP
-diag	sudo.DEBUG.DIAG	
+diag	\fRsudo.DEBUG.DIAG\fR	
 .PP
-info	sudo.DEBUG.INFO	
+info	\fRsudo.DEBUG.INFO\fR	
 .PP
-trace	sudo.DEBUG.TRACE	
+trace	\fRsudo.DEBUG.TRACE\fR	
 .PP
-debug	sudo.DEBUG.DEBUG	very extreme verbose debugging
+debug	\fRsudo.DEBUG.DEBUG\fR	very extreme verbose debugging
 .TE
 .PP
 \fIUsing the logging module\fR
@@ -1726,21 +1759,21 @@ The log handler of sudo will map each Python log level of a message to
 the appropriate sudo debug level.
 The sudo debug system will only receive messages that are not filtered
 out by the Python loggers.
-For example, the log level of the python logger will be an additional filter
-for the log messages, and is usually very different from what level is set in sudo.conf
-for the sudo debug system.
+For example, the log level of the python logger will be an additional
+filter for the log messages, and is usually very different from
+what level is set in sudo.conf for the sudo debug system.
 .SS "Debug example"
-Sudo ships an example debug plugin by default.
+Sudo ships with an example debug plugin.
 To try it, register it by adding the following lines to
 \fI@sysconfdir@/sudo.conf\fR:
 .nf
 .sp
 .RS 4n
-Plugin python_io python_plugin.so \e
-    ModulePath=@prefix@/share/doc/sudo/examples/example_debugging.py \e
+Plugin python_io @python_plugin@ \e
+    ModulePath=@EXAMPLES@/example_debugging.py \e
     ClassName=DebugDemoPlugin
 
-Debug python_plugin.so \e
+Debug @python_plugin@ \e
     @log_dir@/sudo_python_debug plugin@trace,c_calls@trace
 .RE
 .fi
@@ -1805,12 +1838,13 @@ This is how the plugin API accepts options and settings.
 .SH "PLUGIN API CHANGELOG (Python)"
 None yet
 .SH "LIMITATIONS"
-Only a maximum number of 8 python I/O plugins can be loaded at once.
+A maximum of 8 python I/O plugins can be loaded at once.
 If
 \fI@sysconfdir@/sudo.conf\fR
 contains more, those will be rejected with a warning message.
 .PP
-The Event API and the hook function API is currently not accessible for Python plugins.
+The Event API and the hook function API is currently not accessible
+for Python plugins.
 .SH "SEE ALSO"
 sudo.conf(@mansectform@),
 sudo_plugin(@mansectform@),
@@ -1838,7 +1872,7 @@ If you believe you have found a bug in
 you can submit a bug report at https://bugzilla.sudo.ws/
 .SH "SECURITY CONSIDERATIONS"
 All Python plugin handling is implemented inside the
-\fRpython_plugin.so\fR
+\fI@python_plugin@\fR
 dynamic plugin.
 Therefore, if no Python plugin is registered in
 sudo.conf(@mansectform@)
@@ -1848,32 +1882,13 @@ file,
 \fBsudo\fR
 will not load the Python interpreter or the Python libraries.
 .PP
-By default, a Python plugin can only import Python modules which are
-owned by
-\fIroot\fR
-and are only writable by the owner.
-The reason for this is to prevent a file getting imported accidentally
-which is modifiable by a non-root user.
 As
 \fBsudo\fR
-plugins run as
-\fIroot\fR,
-accidentally importing such file would make it possible for any user
-(having write access) to execute any code with administrative rights.
-.PP
-However, during development of a plugin this might not be very convenient.
-The
-sudo.conf(@mansectform@)
-\fRdeveloper_mode\fR
-option can be used to disable it.
-For example:
-.RS 6n
-Set developer_mode true
-.RE
-.PP
-This creates a security risk and is not recommended for production systems,
-it is intended to be used in a development environment (VM, container, etc).
-Before enabling developer mode, be sure that you understand the implications.
+runs plugins as
+\fBroot\fR,
+care must be taken when writing Python plugins to avoid creating
+security vulnerabilities, just as one would when writing plugins
+in C.
 .SH "SUPPORT"
 Limited free support is available via the sudo-users mailing list,
 see https://www.sudo.ws/mailman/listinfo/sudo-users to subscribe or

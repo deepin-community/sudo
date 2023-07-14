@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2000, 2004, 2007-2021
+ * Copyright (c) 1996, 1998-2000, 2004, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -149,6 +149,9 @@ struct command_options {
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
 #endif
+#ifdef HAVE_APPARMOR
+    char *apparmor_profile;		/* AppArmor profile */
+#endif
 #ifdef HAVE_PRIV_SET
     char *privs, *limitprivs;		/* Solaris privilege sets */
 #endif
@@ -232,6 +235,9 @@ struct cmndspec {
     char *runchroot;			/* root directory */
 #ifdef HAVE_SELINUX
     char *role, *type;			/* SELinux role and type */
+#endif
+#ifdef HAVE_APPARMOR
+    char *apparmor_profile;		/* AppArmor profile */
 #endif
 #ifdef HAVE_PRIV_SET
     char *privs, *limitprivs;		/* Solaris privilege sets */
@@ -361,8 +367,9 @@ void alias_put(struct alias *a);
 /* check_aliases.c */
 int check_aliases(struct sudoers_parse_tree *parse_tree, bool strict, bool quiet, int (*cb_unused)(struct sudoers_parse_tree *, struct alias *, void *));
 
-/* gram.c */
+/* gram.y */
 extern struct sudoers_parse_tree parsed_policy;
+extern bool (*sudoers_error_hook)(const char *file, int line, int column, const char *fmt, va_list args);
 bool init_parser(const char *path, bool quiet, bool strict);
 void free_member(struct member *m);
 void free_members(struct member_list *members);
@@ -398,6 +405,7 @@ bool netgr_matches(const char *netgr, const char *lhost, const char *shost, cons
 bool usergr_matches(const char *group, const char *user, const struct passwd *pw);
 bool userpw_matches(const char *sudoers_user, const char *user, const struct passwd *pw);
 int cmnd_matches(struct sudoers_parse_tree *parse_tree, const struct member *m, const char *runchroot, struct cmnd_info *info);
+int cmnd_matches_all(struct sudoers_parse_tree *parse_tree, const struct member *m, const char *runchroot, struct cmnd_info *info);
 int cmndlist_matches(struct sudoers_parse_tree *parse_tree, const struct member_list *list, const char *runchroot, struct cmnd_info *info);
 int host_matches(struct sudoers_parse_tree *parse_tree, const struct passwd *pw, const char *host, const char *shost, const struct member *m);
 int hostlist_matches(struct sudoers_parse_tree *parse_tree, const struct passwd *pw, const struct member_list *list);
@@ -409,9 +417,6 @@ struct gid_list *runas_getgroups(void);
 
 /* toke.c */
 void init_lexer(void);
-
-/* hexchar.c */
-int hexchar(const char *s);
 
 /* base64.c */
 size_t base64_decode(const char *str, unsigned char *dst, size_t dsize);

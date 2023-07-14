@@ -414,7 +414,8 @@ static int
 selinux_edit_create_tfiles(struct command_details *command_details,
     struct tempfile *tf, char *files[], int nfiles)
 {
-    char **sesh_args, **sesh_ap, *user_str = NULL;
+    const char **sesh_args, **sesh_ap;
+    char *user_str = NULL;
     int i, error, sesh_nargs, ret = -1;
     struct stat sb;
     debug_decl(selinux_edit_create_tfiles, SUDO_DEBUG_EDIT);
@@ -422,7 +423,6 @@ selinux_edit_create_tfiles(struct command_details *command_details,
     if (nfiles < 1)
 	debug_return_int(0);
 
-    /* Construct common args for sesh */
     sesh_nargs = 6 + (nfiles * 2) + 1;
     sesh_args = sesh_ap = reallocarray(NULL, sesh_nargs, sizeof(char *));
     if (sesh_args == NULL) {
@@ -430,18 +430,18 @@ selinux_edit_create_tfiles(struct command_details *command_details,
 	goto done;
     }
     *sesh_ap++ = "sesh";
-    *sesh_ap++ = "-e";
+    *sesh_ap++ = "--edit-create";
     if (!ISSET(command_details->flags, CD_SUDOEDIT_FOLLOW))
-	*sesh_ap++ = "-h";
+	*sesh_ap++ = "--no-dereference";
     if (ISSET(command_details->flags, CD_SUDOEDIT_CHECKDIR)) {
 	if ((user_str = selinux_fmt_sudo_user()) == NULL) {
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto done;
 	}
-	*sesh_ap++ = "-w";
+	*sesh_ap++ = "--edit-checkdir";
 	*sesh_ap++ = user_str;
     }
-    *sesh_ap++ = "0";
+    *sesh_ap++ = "--";
 
     for (i = 0; i < nfiles; i++) {
 	char *tfile, *ofile = files[i];
@@ -470,10 +470,10 @@ selinux_edit_create_tfiles(struct command_details *command_details,
     }
     *sesh_ap = NULL;
 
-    /* Run sesh -e [-h] 0 <o1> <t1> ... <on> <tn> */
-    error = selinux_run_helper(command_details->cred.uid, command_details->cred.gid,
-	command_details->cred.ngroups, command_details->cred.groups, sesh_args,
-	command_details->envp);
+    /* Run sesh -c [-h] [-w userstr] <o1> <t1> ... <on> <tn> */
+    error = selinux_run_helper(command_details->cred.uid,
+	command_details->cred.gid, command_details->cred.ngroups,
+	command_details->cred.groups, (char **)sesh_args, command_details->envp);
     switch (error) {
     case SESH_SUCCESS:
 	break;
@@ -520,7 +520,9 @@ static int
 selinux_edit_copy_tfiles(struct command_details *command_details,
     struct tempfile *tf, int nfiles, struct timespec *times)
 {
-    char **sesh_args, **sesh_ap, *user_str = NULL;
+    const char **sesh_args, **sesh_ap;
+    char *user_str = NULL;
+    bool run_helper = false;
     int i, error, sesh_nargs, ret = 1;
     int tfd = -1;
     struct timespec ts;
@@ -530,9 +532,6 @@ selinux_edit_copy_tfiles(struct command_details *command_details,
     if (nfiles < 1)
 	debug_return_int(0);
 
-    const int check_dir = ISSET(command_details->flags, CD_SUDOEDIT_CHECKDIR);
-
-    /* Construct common args for sesh */
     sesh_nargs = 5 + (nfiles * 2) + 1;
     sesh_args = sesh_ap = reallocarray(NULL, sesh_nargs, sizeof(char *));
     if (sesh_args == NULL) {
@@ -540,18 +539,17 @@ selinux_edit_copy_tfiles(struct command_details *command_details,
 	goto done;
     }
     *sesh_ap++ = "sesh";
-    *sesh_ap++ = "-e";
-    if (check_dir) {
+    *sesh_ap++ = "--edit-install";
+    if (ISSET(command_details->flags, CD_SUDOEDIT_CHECKDIR)) {
 	if ((user_str = selinux_fmt_sudo_user()) == NULL) {
 	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	    goto done;
 	}
-	*sesh_ap++ = "-w";
+	*sesh_ap++ = "--edit-checkdir";
 	*sesh_ap++ = user_str;
     }
-    *sesh_ap++ = "1";
+    *sesh_ap++ = "--";
 
-    /* Construct args for sesh -e 1 */
     for (i = 0; i < nfiles; i++) {
 	if (tfd != -1)
 	    close(tfd);
@@ -573,6 +571,7 @@ selinux_edit_copy_tfiles(struct command_details *command_details,
 		continue;
 	    }
 	}
+	run_helper = true;
 	*sesh_ap++ = tf[i].tfile;
 	*sesh_ap++ = tf[i].ofile;
 	if (fchown(tfd, command_details->cred.uid, command_details->cred.gid) != 0) {
@@ -581,40 +580,37 @@ selinux_edit_copy_tfiles(struct command_details *command_details,
 	}
     }
     *sesh_ap = NULL;
-    if (tfd != -1)
-	close(tfd);
 
-    /*
-     * check dir adds two more args to the array
-     */
-    if ((!check_dir && sesh_ap - sesh_args > 3)
-        || (check_dir && sesh_ap - sesh_args > 5)) {
-	/* Run sesh -e 1 <t1> <o1> ... <tn> <on> */
-	error = selinux_run_helper(command_details->cred.uid, command_details->cred.gid,
-	    command_details->cred.ngroups, command_details->cred.groups, sesh_args,
-	    command_details->envp);
-	switch (error) {
-	case SESH_SUCCESS:
-	    ret = 0;
-	    break;
-	case SESH_ERR_NO_FILES:
-	    sudo_warnx("%s",
-		U_("unable to copy temporary files back to their original location"));
-	    break;
-	case SESH_ERR_SOME_FILES:
-	    sudo_warnx("%s",
-		U_("unable to copy some of the temporary files back to their original location"));
-	    break;
-	case SESH_ERR_KILLED:
-	    sudo_warnx("%s", U_("sesh: killed by a signal"));
-	    break;
-	default:
-	    sudo_warnx(U_("sesh: unknown error %d"), error);
-	    break;
-	}
+    if (!run_helper)
+	goto done;
+
+    /* Run sesh -i <t1> <o1> ... <tn> <on> */
+    error = selinux_run_helper(command_details->cred.uid,
+	command_details->cred.gid, command_details->cred.ngroups,
+	command_details->cred.groups, (char **)sesh_args, command_details->envp);
+    switch (error) {
+    case SESH_SUCCESS:
+	ret = 0;
+	break;
+    case SESH_ERR_NO_FILES:
+	sudo_warnx("%s",
+	    U_("unable to copy temporary files back to their original location"));
+	break;
+    case SESH_ERR_SOME_FILES:
+	sudo_warnx("%s",
+	    U_("unable to copy some of the temporary files back to their original location"));
+	break;
+    case SESH_ERR_KILLED:
+	sudo_warnx("%s", U_("sesh: killed by a signal"));
+	break;
+    default:
+	sudo_warnx(U_("sesh: unknown error %d"), error);
+	break;
     }
 
 done:
+    if (tfd != -1)
+	close(tfd);
     /* Contents of tf will be freed by caller. */
     free(sesh_args);
     free(user_str);
@@ -632,9 +628,10 @@ int
 sudo_edit(struct command_details *command_details)
 {
     struct command_details saved_command_details;
-    char **nargv = NULL, **ap, **files = NULL;
+    char **nargv = NULL, **files = NULL;
+    int nfiles = command_details->nfiles;
     int errors, i, ac, nargc, ret;
-    int editor_argc = 0, nfiles = 0;
+    int editor_argc = 0;
     struct timespec times[2];
     struct tempfile *tf = NULL;
     debug_decl(sudo_edit, SUDO_DEBUG_EDIT);
@@ -654,17 +651,31 @@ sudo_edit(struct command_details *command_details)
     if (!set_tmpdir(&user_details.cred))
 	goto cleanup;
 
-    /*
-     * The user's editor must be separated from the files to be
-     * edited by a "--" option.
-     */
-    for (ap = command_details->argv; *ap != NULL; ap++) {
-	if (files)
-	    nfiles++;
-	else if (strcmp(*ap, "--") == 0)
-	    files = ap + 1;
-	else
-	    editor_argc++;
+    if (nfiles > 0) {
+	/*
+	 * The plugin specified the number of files to edit, use it.
+	 */
+	editor_argc = command_details->argc - nfiles;
+	if (editor_argc < 2 || strcmp(command_details->argv[editor_argc - 1], "--") != 0) {
+	    sudo_warnx("%s", U_("plugin error: invalid file list for sudoedit"));
+	    goto cleanup;
+	}
+
+	/* We don't include the "--" when running the user's editor. */
+	files = &command_details->argv[editor_argc--];
+    } else {
+	/*
+	 * Compute the number of files to edit by looking for the "--"
+	 * option which separate the editor from the files.
+	 */
+	for (i = 0; command_details->argv[i] != NULL; i++) {
+	    if (strcmp(command_details->argv[i], "--") == 0) {
+		editor_argc = i;
+		files = &command_details->argv[i + 1];
+		nfiles = command_details->argc - (i + 1);
+		break;
+	    }
+	}
     }
     if (nfiles == 0) {
 	sudo_warnx("%s", U_("plugin error: missing file list for sudoedit"));
@@ -721,6 +732,7 @@ sudo_edit(struct command_details *command_details)
     command_details->cred = user_details.cred;
     command_details->cred.euid = user_details.cred.uid;
     command_details->cred.egid = user_details.cred.gid;
+    command_details->argc = nargc;
     command_details->argv = nargv;
     ret = run_command(command_details);
     if (sudo_gettime_real(&times[1]) == -1) {
@@ -730,6 +742,7 @@ sudo_edit(struct command_details *command_details)
 
     /* Restore saved command_details. */
     command_details->cred = saved_command_details.cred;
+    command_details->argc = saved_command_details.argc;
     command_details->argv = saved_command_details.argv;
 
     /* Copy contents of temp files to real ones. */

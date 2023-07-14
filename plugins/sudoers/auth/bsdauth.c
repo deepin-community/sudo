@@ -68,7 +68,7 @@ bsdauth_init(struct passwd *pw, sudo_auth *auth)
     if (pw->pw_class && *pw->pw_class)
 	state.lc = login_getclass(pw->pw_class);
     else
-	state.lc = login_getclass(pw->pw_uid ? LOGIN_DEFCLASS : LOGIN_DEFROOTCLASS);
+	state.lc = login_getclass(pw->pw_uid ? (char *)LOGIN_DEFCLASS : (char *)LOGIN_DEFROOTCLASS);
     if (state.lc == NULL) {
 	log_warning(0,
 	    N_("unable to get login class for user %s"), pw->pw_name);
@@ -82,7 +82,7 @@ bsdauth_init(struct passwd *pw, sudo_auth *auth)
     }
 
     /* XXX - maybe check the auth style earlier? */
-    login_style = login_getstyle(state.lc, login_style, "auth-sudo");
+    login_style = login_getstyle(state.lc, login_style, (char *)"auth-sudo");
     if (login_style == NULL) {
 	log_warningx(0, N_("invalid authentication type"));
 	auth_close(state.as);
@@ -104,7 +104,7 @@ bsdauth_init(struct passwd *pw, sudo_auth *auth)
 }
 
 int
-bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
+bsdauth_verify(struct passwd *pw, const char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     char *pass;
     char *s;
@@ -133,7 +133,7 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
 	pass = auth_getpass(prompt, SUDO_CONV_PROMPT_ECHO_OFF, callback);
     } else {
 	pass = auth_getpass(s, SUDO_CONV_PROMPT_ECHO_OFF, callback);
-	if (pass && *pass == '\0') {
+	if (pass != NULL && *pass == '\0') {
 	    if ((prompt = strrchr(s, '\n')))
 		prompt++;
 	    else
@@ -141,12 +141,12 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
 
 	    /*
 	     * Append '[echo on]' to the last line of the challenge and
-	     * reprompt with echo turned on.
+	     * re-prompt with echo turned on.
 	     */
-	    len = strlen(prompt) - 1;
-	    while (isspace(prompt[len]) || prompt[len] == ':')
-		prompt[len--] = '\0';
-	    if (asprintf(&s, "%s [echo on]: ", prompt) == -1) {
+	    len = strlen(prompt);
+	    while (len > 0 && (isspace((unsigned char)prompt[len - 1]) || prompt[len - 1] == ':'))
+		len--;
+	    if (asprintf(&s, "%.*s [echo on]: ", (int)len, prompt) == -1) {
 		log_warningx(0, N_("unable to allocate memory"));
 		debug_return_int(AUTH_FATAL);
 	    }
@@ -170,7 +170,7 @@ bsdauth_verify(struct passwd *pw, char *prompt, sudo_auth *auth, struct sudo_con
     if (!pass)
 	debug_return_int(AUTH_INTR);
 
-    if ((s = auth_getvalue(as, "errormsg")) != NULL)
+    if ((s = auth_getvalue(as, (char *)"errormsg")) != NULL)
 	log_warningx(0, "%s", s);
     debug_return_int(AUTH_FAILURE);
 }
@@ -181,7 +181,7 @@ bsdauth_approval(struct passwd *pw, sudo_auth *auth, bool exempt)
     struct bsdauth_state *state = auth->data;
     debug_decl(bsdauth_approval, SUDOERS_DEBUG_AUTH);
 
-    if (auth_approval(state->as, state->lc, pw->pw_name, "auth-sudo") == 0) {
+    if (auth_approval(state->as, state->lc, pw->pw_name, (char *)"auth-sudo") == 0) {
 	if (auth_getstate(state->as) & AUTH_EXPIRED)
 	    log_warningx(0, "%s", N_("your account has expired"));
 	else

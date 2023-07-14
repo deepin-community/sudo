@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2010-2015 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2010-2015, 2020-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -103,10 +103,8 @@ copy_arg(const char *src, size_t len)
     if ((copy = malloc(len + 1)) != NULL) {
 	sudoers_gc_add(GC_PTR, copy);
 	for (dst = copy; src < src_end; ) {
-	    if (src[0] == '\\' && src[1] != '\0') {
+	    if (src[0] == '\\' && src[1] != '\0')
 		src++;
-		continue;
-	    }
 	    *dst++ = *src++;
 	}
 	*dst = '\0';
@@ -126,14 +124,14 @@ copy_arg(const char *src, size_t len)
  * as well as the argument vector.
  */
 static char *
-resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
+resolve_editor(const char *ed, size_t edlen, int nfiles, char * const *files,
     int *argc_out, char ***argv_out, char * const *allowlist)
 {
     char **nargv = NULL, *editor = NULL, *editor_path = NULL;
     const char *tmp, *cp, *ep = NULL;
     const char *edend = ed + edlen;
     struct stat user_editor_sb;
-    int nargc;
+    int nargc = 0;
     debug_decl(resolve_editor, SUDOERS_DEBUG_UTIL);
 
     /*
@@ -151,10 +149,8 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
     /* If we can't find the editor in the user's PATH, give up. */
     if (find_path(editor, &editor_path, &user_editor_sb, getenv("PATH"), NULL,
 	    0, allowlist) != FOUND) {
-	sudoers_gc_remove(GC_PTR, editor);
-	free(editor);
 	errno = ENOENT;
-	debug_return_str(NULL);
+	goto bad;
     }
 
     /* Count rest of arguments and allocate editor argv. */
@@ -175,9 +171,20 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
 	nargv[nargc] = copy_arg(cp, ep - cp);
 	if (nargv[nargc] == NULL)
 	    goto oom;
+
+	/*
+	 * We use "--" to separate the editor and arguments from the files
+	 * to edit.  The editor arguments themselves may not contain "--".
+	 */
+	if (strcmp(nargv[nargc], "--") == 0) {
+	    sudo_warnx(U_("ignoring editor: %.*s"), (int)edlen, ed);
+	    sudo_warnx("%s", U_("editor arguments may not contain \"--\""));
+	    errno = EINVAL;
+	    goto bad;
+	}
     }
     if (nfiles != 0) {
-	nargv[nargc++] = "--";
+	nargv[nargc++] = (char *)"--";
 	while (nfiles--)
 	    nargv[nargc++] = *files++;
     }
@@ -188,6 +195,7 @@ resolve_editor(const char *ed, size_t edlen, int nfiles, char **files,
     debug_return_str(editor_path);
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+bad:
     sudoers_gc_remove(GC_PTR, editor);
     free(editor);
     free(editor_path);
@@ -211,10 +219,11 @@ oom:
  * as well as the argument vector.
  */
 char *
-find_editor(int nfiles, char **files, int *argc_out, char ***argv_out,
+find_editor(int nfiles, char * const *files, int *argc_out, char ***argv_out,
      char * const *allowlist, const char **env_editor)
 {
-    char *ev[3], *editor_path = NULL;
+    char *editor_path = NULL;
+    const char *ev[3];
     unsigned int i;
     debug_decl(find_editor, SUDOERS_DEBUG_UTIL);
 

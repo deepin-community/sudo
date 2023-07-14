@@ -61,12 +61,12 @@ enum sudoers_formats {
  * Function Prototypes
  */
 static void dump_sudoers(struct sudo_lbuf *lbuf);
-static void usage(void) __attribute__((__noreturn__));
 static void set_runaspw(const char *);
 static void set_runasgr(const char *);
-static bool cb_runas_default(const union sudo_defs_val *, int);
+static bool cb_runas_default(const char *file, int line, int column, const union sudo_defs_val *, int);
 static int testsudoers_error(const char *msg);
 static int testsudoers_output(const char *buf);
+sudo_noreturn static void usage(void);
 
 /* testsudoers_pwutil.c */
 extern struct cache_item *testsudoers_make_gritem(gid_t gid, const char *group);
@@ -82,6 +82,7 @@ extern int (*trace_print)(const char *msg);
  */
 struct sudo_user sudo_user;
 struct passwd *list_pw;
+static const char *orig_cmnd;
 static char *runas_group, *runas_user;
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
@@ -202,15 +203,19 @@ main(int argc, char *argv[])
     if (argc < 2) {
 	if (!dflag)
 	    usage();
-	user_name = argc ? *argv++ : "root";
-	user_cmnd = user_base = "true";
+	user_name = argc ? *argv++ : (char *)"root";
+	orig_cmnd = "true";
 	argc = 0;
     } else {
 	user_name = *argv++;
-	user_cmnd = *argv++;
-	user_base = sudo_basename(user_cmnd);
+	orig_cmnd = *argv++;
 	argc -= 2;
     }
+    user_cmnd = strdup(orig_cmnd);
+    if (user_cmnd == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    user_base = sudo_basename(user_cmnd);
+
     if ((sudo_user.pw = sudo_getpwnam(user_name)) == NULL)
 	sudo_fatalx(U_("unknown user %s"), user_name);
 
@@ -292,17 +297,17 @@ main(int argc, char *argv[])
 	}
         break;
     case format_sudoers:
-	if (sudoersparse() != 0 || parse_error)
+	if (sudoersparse() != 0)
 	    parse_error = true;
         break;
     default:
         sudo_fatalx("error: unhandled input %d", input_format);
     }
+    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
+	parse_error = true;
+
     if (!parse_error)
 	(void) puts("Parses OK");
-
-    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
-	(void) puts("Problem with defaults entries");
 
     if (dflag) {
 	(void) putchar('\n');
@@ -415,7 +420,8 @@ set_runasgr(const char *group)
  * Callback for runas_default sudoers setting.
  */
 static bool
-cb_runas_default(const union sudo_defs_val *sd_un, int op)
+cb_runas_default(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     /* Only reset runaspw if user didn't specify one. */
     if (!runas_user && !runas_group)
@@ -441,16 +447,21 @@ open_sudoers(const char *file, bool doedit, bool *keepopen)
     struct stat sb;
     FILE *fp = NULL;
     const char *base;
+    int error, fd;
     debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL);
 
     /* Report errors using the basename for consistent test output. */
     base = sudo_basename(file);
-    switch (sudo_secure_file(file, sudoers_uid, sudoers_gid, &sb)) {
-	case SUDO_PATH_SECURE:
-	    fp = fopen(file, "r");
-	    break;
+    fd = sudo_secure_open_file(file, sudoers_uid, sudoers_gid, &sb, &error);
+    if (fd != -1) {
+	if ((fp = fdopen(fd, "r")) == NULL) {
+	    sudo_warn("unable to open %s", base);
+	    close(fd);
+	}
+    } else {
+	switch (error) {
 	case SUDO_PATH_MISSING:
-	    sudo_warn("unable to stat %s", base);
+	    sudo_warn("unable to open %s", base);
 	    break;
 	case SUDO_PATH_BAD_TYPE:
 	    sudo_warnx("%s is not a regular file", base);
@@ -467,8 +478,10 @@ open_sudoers(const char *file, bool doedit, bool *keepopen)
 		base, (unsigned int) sudoers_gid);
 	    break;
 	default:
-	    /* NOTREACHED */
+	    sudo_warnx("%s: internal error, unexpected error %d",
+		__func__, error);
 	    break;
+	}
     }
 
     debug_return_ptr(fp);
@@ -501,8 +514,13 @@ init_eventlog_config(void)
 int
 set_cmnd_path(const char *runchroot)
 {
-    /* Cannot return FOUND without also setting user_cmnd to a new value. */
-    return NOT_FOUND;
+    /* Reallocate user_cmnd to catch bugs in command_matches(). */
+    char *new_cmnd = strdup(orig_cmnd);
+    if (new_cmnd == NULL)
+	return NOT_FOUND_ERROR;
+    free(user_cmnd);
+    user_cmnd = new_cmnd;
+    return FOUND;
 }
 
 static bool

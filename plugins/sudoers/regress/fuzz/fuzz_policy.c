@@ -39,7 +39,9 @@
 #endif
 
 #include "sudoers.h"
+#include "sudo_iolog.h"
 #include "interfaces.h"
+#include "check.h"
 
 extern char **environ;
 extern sudo_dso_public struct policy_plugin sudoers_policy;
@@ -48,6 +50,8 @@ const char *path_plugin_dir = _PATH_SUDO_PLUGIN_DIR;
 char *audit_msg;
 
 static int pass;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 static FILE *
 open_data(const uint8_t *data, size_t size)
@@ -114,13 +118,13 @@ push(struct dynamic_array *arr, const char *entry)
     }
 
     if (arr->len + (entry != NULL) >= arr->size) {
-	char **tmp = reallocarray(arr->entries, arr->size + 128, sizeof(char *));
+	char **tmp = reallocarray(arr->entries, arr->size + 1024, sizeof(char *));
 	if (tmp == NULL) {
 	    free(copy);
 	    return false;
 	}
 	arr->entries = tmp;
-	arr->size += 128;
+	arr->size += 1024;
     }
     if (copy != NULL)
 	arr->entries[arr->len++] = copy;
@@ -161,7 +165,7 @@ fuzz_printf(int msg_type, const char *fmt, ...)
     return 0;
 }
 
-int
+static int
 fuzz_hook_stub(struct sudo_hook *hook)
 {
     return 0;
@@ -173,6 +177,10 @@ fuzz_hook_stub(struct sudo_hook *hook)
  * can look up "localhost" and returns an error for anything else.
  */
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+/* Avoid compilation errors if getaddrinfo() or freeaddrinfo() are macros. */
+# undef getaddrinfo
+# undef freeaddrinfo
+
 int
 # ifdef HAVE_GETADDRINFO
 getaddrinfo(
@@ -262,7 +270,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (fp == NULL)
         return 0;
 
-    setprogname("fuzz_policy");
+    initprogname("fuzz_policy");
     sudoers_debug_register(getprogname(), NULL);
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
@@ -368,7 +376,9 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 	/* Additional environment variables to add. */
 	if (strncmp(line, "env=", sizeof("env=") - 1) == 0) {
-	    push(&env_add, line);
+	    const char *cp = line + sizeof("env=") - 1;
+	    if (strchr(cp, '=') != NULL)
+		push(&env_add, cp);
 	    continue;
 	}
 
@@ -380,8 +390,8 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     line = NULL;
 
     /* Exercise code paths that use KRB5CCNAME and SUDO_PROMPT. */
-    putenv("KRB5CCNAME=/tmp/krb5cc_123456");
-    putenv("SUDO_PROMPT=[sudo] password for %p: ");
+    putenv((char *)"KRB5CCNAME=/tmp/krb5cc_123456");
+    putenv((char *)"SUDO_PROMPT=[sudo] password for %p: ");
 
     sudoers_policy.register_hooks(SUDO_API_VERSION, fuzz_hook_stub);
 
@@ -660,6 +670,7 @@ sudo_file_getdefs(struct sudo_nss *nss)
 
 static struct sudo_nss sudo_nss_file = {
     { NULL, NULL },
+    "sudoers",
     sudo_file_open,
     sudo_file_close,
     sudo_file_parse,
@@ -742,6 +753,21 @@ log_exit_status(int exit_status)
 }
 
 /* STUB */
+bool
+mail_parse_errors(void)
+{
+    return true;
+}
+
+/* STUB */
+bool
+log_parse_error(const char *file, int line, int column, const char *fmt,
+    va_list args)
+{
+    return true;
+}
+
+/* STUB */
 int
 audit_failure(char *const argv[], char const *const fmt, ...)
 {
@@ -804,7 +830,7 @@ expand_iolog_path(const char *inpath, char *path, size_t pathlen,
 
 /* STUB */
 bool
-iolog_nextid(char *iolog_dir, char sessid[7])
+iolog_nextid(const char *iolog_dir, char sessid[7])
 {
     strlcpy(sessid, "000001", 7);
     return true;
@@ -812,35 +838,40 @@ iolog_nextid(char *iolog_dir, char sessid[7])
 
 /* STUB */
 bool
-cb_maxseq(const union sudo_defs_val *sd_un, int op)
+cb_maxseq(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_user(const union sudo_defs_val *sd_un, int op)
+cb_iolog_user(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_group(const union sudo_defs_val *sd_un, int op)
+cb_iolog_group(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_mode(const union sudo_defs_val *sd_un, int op)
+cb_iolog_mode(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_group_plugin(const union sudo_defs_val *sd_un, int op)
+cb_group_plugin(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1996, 1998-2005, 2007-2018
+ * Copyright (c) 1996, 1998-2005, 2007-2022
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -77,6 +77,7 @@ struct sudoersfile {
     bool modified;
     bool doedit;
     int fd;
+    int errorline;
 };
 TAILQ_HEAD(sudoersfile_list, sudoersfile);
 
@@ -89,14 +90,15 @@ static char *get_editor(int *editor_argc, char ***editor_argv);
 static bool check_syntax(const char *, bool, bool, bool, bool);
 static bool edit_sudoers(struct sudoersfile *, char *, int, char **, int);
 static bool install_sudoers(struct sudoersfile *, bool, bool);
+static bool visudo_track_error(const char *file, int line, int column, const char *fmt, va_list args) sudo_printf0like(4, 0);
 static int print_unused(struct sudoers_parse_tree *, struct alias *, void *);
 static bool reparse_sudoers(char *, int, char **, bool, bool);
-static int run_command(char *, char **);
+static int run_command(const char *, char *const *);
 static void parse_sudoers_options(void);
 static void setup_signals(void);
-static void help(void) __attribute__((__noreturn__));
-static void usage(int);
 static void visudo_cleanup(void);
+sudo_noreturn static void help(void);
+sudo_noreturn static void usage(void);
 
 extern void get_hostname(void);
 
@@ -107,12 +109,15 @@ struct sudo_user sudo_user;
 struct passwd *list_pw;
 static struct sudoersfile_list sudoerslist = TAILQ_HEAD_INITIALIZER(sudoerslist);
 static bool checkonly;
-static const char short_opts[] =  "cf:hOPqsVx:";
+static bool edit_includes = true;
+static unsigned int errors;
+static const char short_opts[] =  "cf:hIOPqsVx:";
 static struct option long_opts[] = {
     { "check",		no_argument,		NULL,	'c' },
     { "export",		required_argument,	NULL,	'x' },
     { "file",		required_argument,	NULL,	'f' },
     { "help",		no_argument,		NULL,	'h' },
+    { "no-includes",	no_argument,		NULL,	'I' },
     { "owner",		no_argument,		NULL,	'O' },
     { "perms",		no_argument,		NULL,	'P' },
     { "quiet",		no_argument,		NULL,	'q' },
@@ -148,7 +153,7 @@ main(int argc, char *argv[])
     textdomain("sudoers");
 
     if (argc < 1)
-	usage(1);
+	usage();
 
     /* Register fatal/fatalx callback. */
     sudo_fatal_callback_register(visudo_cleanup);
@@ -189,6 +194,9 @@ main(int argc, char *argv[])
 	    case 'h':
 		help();
 		break;
+	    case 'I':
+		edit_includes = false;
+		break;
 	    case 'O':
 		use_owner = true;	/* check/set owner */
 		break;
@@ -205,7 +213,7 @@ main(int argc, char *argv[])
 		export_path = optarg;
 		break;
 	    default:
-		usage(1);
+		usage();
 	}
     }
     argc -= optind;
@@ -223,11 +231,19 @@ main(int argc, char *argv[])
 	}
 	break;
     default:
-	usage(1);
+	usage();
     }
 
-    /* Check/set owner and mode for installed sudoers file. */
-    if (!fflag) {
+    if (fflag) {
+	/* Looser owner/permission checks for an uninstalled sudoers file. */
+	if (!use_owner) {
+	    sudoers_uid = -1;
+	    sudoers_gid = -1;
+	}
+	if (!use_perms)
+	    SET(sudoers_mode, S_IWUSR);
+    } else {
+	/* Check/set owner and mode for installed sudoers file. */
 	use_owner = true;
 	use_perms = true;
     }
@@ -244,7 +260,9 @@ main(int argc, char *argv[])
     }
 
     /* Mock up a fake sudo_user struct. */
-    user_cmnd = user_base = "";
+    user_cmnd = user_base = strdup("true");
+    if (user_cmnd == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     if (geteuid() == 0) {
 	const char *user = getenv("SUDO_USER");
 	if (user != NULL && *user != '\0')
@@ -255,6 +273,9 @@ main(int argc, char *argv[])
 	    sudo_fatalx(U_("you do not exist in the %s database"), "passwd");
     }
     get_hostname();
+
+    /* Hook the sudoers parser to track files with parse errors. */
+    sudoers_error_hook = visudo_track_error;
 
     /* Setup defaults data structures. */
     if (!init_defaults())
@@ -320,12 +341,34 @@ done:
     exit(exitcode);
 }
 
+static bool
+visudo_track_error(const char *file, int line, int column, const char *fmt,
+     va_list args)
+{
+    struct sudoersfile *sp;
+    debug_decl(visudo_track_error, SUDOERS_DEBUG_UTIL);
+
+    TAILQ_FOREACH(sp, &sudoerslist, entries) {
+	if (sp->errorline > 0)
+	    continue;		/* preserve the first error */
+
+	if (strcmp(file, sp->path) == 0 ||
+		(sp->tpath != NULL && strcmp(file, sp->tpath) == 0)) {
+	    sp->errorline = line;
+	    break;
+	}
+    }
+    errors++;
+
+    debug_return_bool(true);
+}
+
 static char *
 get_editor(int *editor_argc, char ***editor_argv)
 {
     char *editor_path = NULL, **allowlist = NULL;
-    const char *env_editor;
-    static char *files[] = { "+1", "sudoers" };
+    const char *env_editor = NULL;
+    static const char *files[] = { "+1", "sudoers" };
     unsigned int allowlist_len = 0;
     debug_decl(get_editor, SUDOERS_DEBUG_UTIL);
 
@@ -353,12 +396,16 @@ get_editor(int *editor_argc, char ***editor_argv)
 	allowlist[allowlist_len] = NULL;
     }
 
-    editor_path = find_editor(2, files, editor_argc, editor_argv, allowlist,
-	&env_editor);
+    editor_path = find_editor(2, (char **)files, editor_argc, editor_argv,
+	allowlist, &env_editor);
     if (editor_path == NULL) {
 	if (def_env_editor && env_editor != NULL) {
 	    /* We are honoring $EDITOR so this is a fatal error. */
-	    sudo_fatalx(U_("specified editor (%s) doesn't exist"), env_editor);
+	    if (errno == ENOENT) {
+		sudo_warnx(U_("specified editor (%s) doesn't exist"),
+		    env_editor);
+	    }
+	    exit(EXIT_FAILURE);
 	}
 	sudo_fatalx(U_("no editor found (editor path = %s)"), def_editor);
     }
@@ -377,12 +424,13 @@ get_editor(int *editor_argc, char ***editor_argv)
  * If an entry starts with '*' the tail end of the string is matched.
  * No other wild cards are supported.
  */
-static char *lineno_editors[] = {
+static const char *lineno_editors[] = {
     "ex",
     "nex",
     "vi",
     "nvi",
     "vim",
+    "nvim",
     "elvis",
     "*macs",
     "mg",
@@ -404,7 +452,7 @@ static bool
 editor_supports_plus(const char *editor)
 {
     const char *cp, *editor_base;
-    char **av;
+    const char **av;
     debug_decl(editor_supports_plus, SUDOERS_DEBUG_UTIL);
 
     editor_base = sudo_basename(editor);
@@ -496,9 +544,9 @@ edit_sudoers(struct sudoersfile *sp, char *editor, int editor_argc,
 	(void)snprintf(linestr, sizeof(linestr), "+%d", lineno);
 	editor_argv[ac++] = linestr; // -V507
     }
-    editor_argv[ac++] = "--";
+    editor_argv[ac++] = (char *)"--";
     editor_argv[ac++] = sp->tpath;
-    editor_argv[ac++] = NULL;
+    editor_argv[ac] = NULL;
 
     /*
      * Do the edit:
@@ -564,7 +612,7 @@ done:
 
 /*
  * Check Defaults and Alias entries.
- * Sets parse_error on error and errorfile/errorlineno if possible.
+ * On error, visudo_track_error() will set the line number in sudoerslist.
  */
 static void
 check_defaults_and_aliases(bool strict, bool quiet)
@@ -572,19 +620,6 @@ check_defaults_and_aliases(bool strict, bool quiet)
     debug_decl(check_defaults_and_aliases, SUDOERS_DEBUG_UTIL);
 
     if (!check_defaults(&parsed_policy, quiet)) {
-	struct defaults *d;
-	sudo_rcstr_delref(errorfile);
-	errorfile = NULL;
-	errorlineno = -1;
-	/* XXX - should edit all files with errors */
-	TAILQ_FOREACH(d, &parsed_policy.defaults, entries) {
-	    if (d->error) {
-		/* Defaults parse error, set errorfile/errorlineno. */
-		errorfile = sudo_rcstr_addref(d->file);
-		errorlineno = d->line;
-		break;
-	    }
-	}
 	parse_error = true;
     }
     if (check_aliases(&parsed_policy, strict, quiet, print_unused) != 0) {
@@ -608,6 +643,7 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
     /*
      * Parse the edited sudoers files.
      */
+    errors = 0;
     while ((sp = TAILQ_FIRST(&sudoerslist)) != NULL) {
 	last = TAILQ_LAST(&sudoerslist, sudoersfile_list);
 	fp = fopen(sp->tpath, "r+");
@@ -619,6 +655,7 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
 	if (!init_defaults())
 	    sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
 	init_parser(sp->path, quiet, true);
+	sp->errorline = -1;
 
 	/* Parse the sudoers temp file(s) */
 	sudoersrestart(fp);
@@ -627,13 +664,10 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
 	    sudo_warnx(U_("unable to parse temporary file (%s), unknown error"),
 		sp->tpath);
 	    parse_error = true;
-	    sudo_rcstr_delref(errorfile);
-	    if ((errorfile = sudo_rcstr_dup(sp->path)) == NULL)
-		sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 	}
 	fclose(sudoersin);
 	if (!parse_error) {
-	    (void) update_defaults(&parsed_policy, NULL,
+	    parse_error = !update_defaults(&parsed_policy, NULL,
 		SETDEF_GENERIC|SETDEF_HOST|SETDEF_USER, true);
 	    check_defaults_and_aliases(strict, quiet);
 	}
@@ -654,16 +688,10 @@ reparse_sudoers(char *editor, int editor_argc, char **editor_argv,
 	    default:
 		/* Edit file with the parse error */
 		TAILQ_FOREACH(sp, &sudoerslist, entries) {
-		    if (errorfile == NULL || strcmp(sp->path, errorfile) == 0) {
+		    if (errors == 0 || sp->errorline > 0) {
 			edit_sudoers(sp, editor, editor_argc, editor_argv,
-			    errorlineno);
-			if (errorfile != NULL)
-			    break;
+			    sp->errorline);
 		    }
-		}
-		if (errorfile != NULL && sp == NULL) {
-		    sudo_fatalx(U_("internal error, unable to find %s in list!"),
-			sudoers);
 		}
 		break;
 	    }
@@ -869,7 +897,7 @@ setup_signals(void)
 }
 
 static int
-run_command(char *path, char **argv)
+run_command(const char *path, char *const *argv)
 {
     int status;
     pid_t pid, rv;
@@ -949,20 +977,15 @@ check_syntax(const char *file, bool quiet, bool strict, bool check_owner,
 	    sudo_warn(U_("unable to open %s"), file);
 	goto done;
     }
-    if (!init_defaults())
-	sudo_fatalx("%s", U_("unable to initialize sudoers default values"));
     init_parser(file, quiet, true);
     sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
     if (sudoersparse() && !parse_error) {
 	if (!quiet)
 	    sudo_warnx(U_("failed to parse %s file, unknown error"), file);
 	parse_error = true;
-	sudo_rcstr_delref(errorfile);
-	if ((errorfile = sudo_rcstr_dup(file)) == NULL)
-	    sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     }
     if (!parse_error) {
-	(void) update_defaults(&parsed_policy, NULL,
+	parse_error = !update_defaults(&parsed_policy, NULL,
 	    SETDEF_GENERIC|SETDEF_HOST|SETDEF_USER, true);
 	check_defaults_and_aliases(strict, quiet);
     }
@@ -1073,6 +1096,11 @@ open_sudoers(const char *path, bool doedit, bool *keepopen)
 	    break;
     }
     if (entry == NULL) {
+	if (doedit && !edit_includes) {
+	    /* Only edit the main sudoers file. */
+	    if (strcmp(path, sudoers_file) != 0)
+		doedit = false;
+	}
 	if ((entry = new_sudoers(path, doedit)) == NULL)
 	    debug_return_ptr(NULL);
 	if ((fp = fdopen(entry->fd, "r")) == NULL)
@@ -1184,45 +1212,42 @@ visudo_cleanup(void)
 static void
 quit(int signo)
 {
-    struct sudoersfile *sp;
     struct iovec iov[4];
 
-    TAILQ_FOREACH(sp, &sudoerslist, entries) {
-	if (sp->tpath != NULL)
-	    (void) unlink(sp->tpath);
-    }
+    visudo_cleanup();
 
 #define	emsg	 " exiting due to signal: "
     iov[0].iov_base = (char *)getprogname();
     iov[0].iov_len = strlen(iov[0].iov_base);
-    iov[1].iov_base = emsg;
+    iov[1].iov_base = (char *)emsg;
     iov[1].iov_len = sizeof(emsg) - 1;
     iov[2].iov_base = strsignal(signo);
     iov[2].iov_len = strlen(iov[2].iov_base);
-    iov[3].iov_base = "\n";
+    iov[3].iov_base = (char *)"\n";
     iov[3].iov_len = 1;
     ignore_result(writev(STDERR_FILENO, iov, 4));
     _exit(signo);
 }
 
+#define VISUDO_USAGE	"usage: %s [-chqsV] [[-f] sudoers ]\n"
+
 static void
-usage(int fatal)
+usage(void)
 {
-    (void) fprintf(fatal ? stderr : stdout,
-	"usage: %s [-chqsV] [[-f] sudoers ]\n", getprogname());
-    if (fatal)
-	exit(EXIT_FAILURE);
+    (void) fprintf(stderr, VISUDO_USAGE, getprogname());
+    exit(EXIT_FAILURE);
 }
 
 static void
 help(void)
 {
     (void) printf(_("%s - safely edit the sudoers file\n\n"), getprogname());
-    usage(0);
+    (void) printf(VISUDO_USAGE, getprogname());
     (void) puts(_("\nOptions:\n"
 	"  -c, --check              check-only mode\n"
 	"  -f, --file=sudoers       specify sudoers file location\n"
 	"  -h, --help               display help message and exit\n"
+	"  -I, --no-includes        do not edit include files\n"
 	"  -q, --quiet              less verbose (quiet) syntax error messages\n"
 	"  -s, --strict             strict syntax checking\n"
 	"  -V, --version            display version information and exit\n"));

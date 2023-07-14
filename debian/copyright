@@ -4,7 +4,12 @@ Upstream-Contact: Todd C. Miller <Todd.Miller@sudo.ws>
 Source: https://www.sudo.ws/
 
 Files: *
-Copyright: 1994-1996, 1998-2022  Todd C. Miller <Todd.Miller@sudo.ws>
+Copyright: 1994-1996, 1998-2023  Todd C. Miller <Todd.Miller@sudo.ws>
+License: ISC
+
+Files: src/selinux.c
+Copyright: 2009-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+	2008 Dan Walsh <dwalsh@redhat.com>
 License: ISC
 
 Files: plugins/python/*
@@ -40,12 +45,138 @@ Files: plugins/sudoers/sssd.c
 Copyright: 2011 Daniel Kopecek <dkopecek@redhat.com>
 License: ISC
 
-Files: plugins/sudoers/bsm_audit.[ch]
+Files: plugins/sudoers/bsm_audit.c
+ 	plugins/sudoers/bsm_audit.h
 Copyright: 2009 Christian S.J. Peron
 License: ISC
 
-Files: plugins/sudoers/solaris_audit.[ch]
+Files: plugins/sudoers/solaris_audit.c
+ 	plugins/sudoers/solaris_audit.h
 Copyright: 2014, Oracle and/or its affiliates.
+License: ISC
+
+Files: plugins/sudoers/po/cs.po
+Copyright: 2013-2023 Petr Pisar <petr.pisar@atlas.cz>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: po/cs.po
+Copyright: 2013-2023 Petr Pisar <petr.pisar@atlas.cz>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/de.po
+Copyright: 2001-2023 Jochen Hein <jochen@jochen.org>
+	2013 Hendrik Knackstedt <hendrik.knackstedt@t-online.de>
+	2015 Mario Blättermann  <mario.blaettermann@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: po/de.po
+Copyright: 2012-2014 Jakob Kramer <jakob.kramer@gmx.de>
+	2012, 2014-2017, 2019-2022 Mario Blättermann  <mario.blaettermann@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: plugins/sudoers/po/eo.po
+	po/eo.po
+Copyright: 2013-2019 Felipe Castro <fefcas@gmail.com>
+	2012, 2019-2023 Keith Bowes <zooplah@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: plugins/sudoers/po/fr.po
+Copyright: 2014-2016 Frédéric Hantrais <fhantrais@gmail.com>
+	2023 Frédéric Marchal <fmarchal@perso.be>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: po/fr.po
+Copyright: 2022-2023 Frédéric Marchal <fmarchal@perso.be>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: po/fur.po
+Copyright: 2017, 2023 Fabio Tomat <f.t.public@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/hr.po
+Copyright: 2016-2023 Božidar Putanec <bozidarp@yahoo.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: po/hr.po
+Copyright: 2012-2013 Tomislav Krznar <tomislav.krznar@gmail.com>
+	2016-2023 Božidar Putanec <bozidarp@yahoo.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/ja.po
+	po/ja.po
+Copyright: 2011 Yasuaki Taniguchi <yasuakit@gmail.com>
+	2012, 2015-2023 Takeshi Hamasaki <hmatrjp@users.sourceforge.jp>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/ko.po
+	po/ko.po
+Copyright: 2016-2023 Seong-ho Cho <darkcircle.0426@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: plugins/sudoers/po/pl.po
+	po/pl.po
+Copyright: 2011-2023 Jakub Bogusz <qboosh@pld-linux.org>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/ro.po
+	po/ro.po
+Copyright: 2020 Florentina Mușat <florentina.musat.28@gmail.com>
+	2021-2023 Remus-Gabriel Chelu <remusgabriel.chelu@disroot.org>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: plugins/sudoers/po/ru.po
+Copyright: 2015 Artem Vorotnikov <artem@vorotnikov.me>
+	2015, 2022 Pavel Maryanov <acid@jack.kiev.ua>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: ISC
+
+Files: plugins/sudoers/po/sv.po
+	po/sv.po
+Copyright: 2012 Daniel Nylander <po@danielnylander.se>
+	2016-2022 Sebastian Rasmussen <sebras@gmail.com>
+	2021 Luna Jernberg <droidbittin@gmail.com>
+License: public-domain
+
+Files: plugins/sudoers/po/uk.po
+Copyright: 2011-2023 Yuri Chornoivan <yurchor@ukr.net>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/zh_CN.po
+Copyright: 2011-2018i Wylmer Wang <wantinghard@gmail.com>
+	2019-2022 Boyuan Yang <073plan@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: plugins/sudoers/po/zh_TW.po
+Copyright: 2019 Hugwalk <baozou0421@gmail.com>
+	2019-2021 Yi-Jyun Pan <pan93412@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: po/zh_TW.po
+Copyright: 2018 林博仁 (Buo-ren, Lin) <Buo.Ren.Lin@gmail.com> 
+	2019-2021 Yi-Jyun Pan <pan93412@gmail.com>
+	2011-2013 Todd C. Miller <Todd.Miller@courtesan.com>
+License: public-domain
+
+Files: lib/util/mmap_alloc.c
+Copyright: 2008 Otto Moerbeek <otto@drijf.net>↲
+	2022 Todd C. Miller <Todd.Miller@sudo.ws>
 License: ISC
 
 Files: lib/util/reallocarray.c
@@ -85,11 +216,11 @@ Copyright: 2014 Theo de Raadt <deraadt@openbsd.org>
 License: ISC
 
 Files: include/protobuf-c/* lib/protobuf-c/*
-Copyright: 2008-2018, Dave Benson and the protobuf-c authors
+Copyright: 2008-2022, Dave Benson and the protobuf-c authors
 License: BSD-2-Clause
 
 Files: lib/zlib/*
-Copyright: 1995-2017 Jean-loup Gailly and Mark Adler
+Copyright: 1995-2022 Jean-loup Gailly and Mark Adler
 License: Zlib
  This software is provided 'as-is', without any express or implied
  warranty.  In no event will the authors be held liable for any damages
@@ -176,3 +307,8 @@ License: BSD-2-Clause
  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: public-domain
+ The files tagged with this license contains the following paragraphs:
+ .
+ This file is put in the public domain.

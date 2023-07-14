@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2021-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -65,6 +70,7 @@ journal_fdopen(int fd, const char *journal_path,
 {
     debug_decl(journal_fdopen, SUDO_DEBUG_UTIL);
 
+    free(closure->journal_path);
     closure->journal_path = strdup(journal_path);
     if (closure->journal_path == NULL) {
 	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
@@ -72,6 +78,8 @@ journal_fdopen(int fd, const char *journal_path,
     }
 
     /* Defer fdopen() until last--it cannot be undone. */
+    if (closure->journal != NULL)
+	fclose(closure->journal);
     if ((closure->journal = fdopen(fd, "r+")) == NULL) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
 	    "unable to fdopen journal file %s", journal_path);
@@ -84,8 +92,9 @@ journal_fdopen(int fd, const char *journal_path,
 static int
 journal_mkstemp(const char *parent_dir, char *pathbuf, int pathlen)
 {
-    int len, fd = -1;
+    int len, dfd = -1, fd = -1;
     mode_t dirmode, oldmask;
+    char *template;
     debug_decl(journal_mkstemp, SUDO_DEBUG_UTIL);
 
     /* umask must not be more restrictive than the file modes. */
@@ -104,19 +113,23 @@ journal_mkstemp(const char *parent_dir, char *pathbuf, int pathlen)
 	    RELAY_TEMPLATE);
 	goto done;
     }
-    if (!sudo_mkdir_parents(pathbuf, logsrvd_conf_iolog_uid(),
-	    logsrvd_conf_iolog_gid(), S_IRWXU|S_IXGRP|S_IXOTH, false)) {
+    dfd = sudo_open_parent_dir(pathbuf, logsrvd_conf_iolog_uid(),
+	logsrvd_conf_iolog_gid(), S_IRWXU|S_IXGRP|S_IXOTH, false);
+    if (dfd == -1) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
 	    "unable to create parent dir for %s", pathbuf);
 	goto done;
     }
-    if ((fd = mkstemp(pathbuf)) == -1) {
+    template = pathbuf + (len - strlen(RELAY_TEMPLATE));
+    if ((fd = mkostempsat(dfd, template, 0, 0)) == -1) {
 	sudo_warn(U_("%s: %s"), "mkstemp", pathbuf);
 	goto done;
     }
 
 done:
     umask(oldmask);
+    if (dfd != -1)
+	close(dfd);
 
     debug_return_int(fd);
 }
@@ -280,7 +293,7 @@ journal_seek(struct timespec *target, struct connection_closure *closure)
 	client_message__free_unpacked(msg, NULL);
 	msg = client_message__unpack(NULL, msg_len, buf);
 	if (msg == NULL) {
-	    sudo_warnx("unable to unpack %s size %zu", "ClientMessage",
+	    sudo_warnx(U_("unable to unpack %s size %zu"), "ClientMessage",
 		(size_t)msg_len);
 	    closure->errstr = _("invalid journal file, unable to restart");
 	    break;
@@ -358,13 +371,8 @@ journal_seek(struct timespec *target, struct connection_closure *closure)
 		msg->type_case, "ClientMessage", closure->journal_path);
 	    break;
 	}
-	if (delay != NULL) {
+	if (delay != NULL)
 	    update_elapsed_time(delay, &closure->elapsed_time);
-	    sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
-		"%s: elapsed time now [%lld, %ld]", closure->journal_path,
-		(long long)closure->elapsed_time.tv_sec,
-		closure->elapsed_time.tv_nsec);
-	}
 
 	if (sudo_timespeccmp(&closure->elapsed_time, target, >=)) {
 	    if (sudo_timespeccmp(&closure->elapsed_time, target, ==)) {
@@ -577,6 +585,8 @@ journal_suspend(CommandSuspend *msg, uint8_t *buf, size_t len,
 {
     debug_decl(journal_suspend, SUDO_DEBUG_UTIL);
 
+    update_elapsed_time(msg->delay, &closure->elapsed_time);
+
     debug_return_bool(journal_write(buf, len, closure));
 }
 
@@ -588,6 +598,8 @@ journal_winsize(ChangeWindowSize *msg, uint8_t *buf, size_t len,
     struct connection_closure *closure)
 {
     debug_decl(journal_winsize, SUDO_DEBUG_UTIL);
+
+    update_elapsed_time(msg->delay, &closure->elapsed_time);
 
     debug_return_bool(journal_write(buf, len, closure));
 }
