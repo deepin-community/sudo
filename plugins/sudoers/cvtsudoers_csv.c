@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2021-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,11 +32,11 @@
 #include <unistd.h>
 #include <stdarg.h>
 
-#include "sudoers.h"
-#include "cvtsudoers.h"
+#include <sudoers.h>
+#include <cvtsudoers.h>
 #include <gram.h>
 
-static void print_member_list_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, struct member_list *members, bool negated, int alias_type, bool expand_aliases);
+static void print_member_list_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree, struct member_list *members, bool negated, short alias_type, bool expand_aliases);
 
 /*
  * Print sudoOptions from a defaults_list.
@@ -88,7 +88,7 @@ defaults_type_to_string(int defaults_type)
 /*
  * Map a Defaults type to an alias type.
  */
-static int
+static short
 defaults_to_alias_type(int defaults_type)
 {
     switch (defaults_type) {
@@ -112,7 +112,7 @@ defaults_to_alias_type(int defaults_type)
  * XXX - rewrite this
  */
 static bool
-print_csv_string(FILE *fp, const char *str, bool quoted)
+print_csv_string(FILE * restrict fp, const char * restrict str, bool quoted)
 {
     const char *src = str;
     char *dst, *newstr;
@@ -167,7 +167,7 @@ format_cmnd(struct sudo_command *c, bool negated)
     int len;
     debug_decl(format_cmnd, SUDOERS_DEBUG_UTIL);
 
-    cmnd = c->cmnd ? c->cmnd : "ALL";
+    cmnd = c->cmnd ? c->cmnd : (char *)"ALL";
     bufsiz = negated + strlen(cmnd) + 1;
     if (c->args != NULL)
 	bufsiz += 1 + strlen(c->args);
@@ -185,7 +185,7 @@ format_cmnd(struct sudo_command *c, bool negated)
 
     cp = buf;
     TAILQ_FOREACH(digest, &c->digests, entries) {
-	len = snprintf(cp, bufsiz - (cp - buf), "%s:%s%s ", 
+	len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s:%s%s ", 
 	    digest_type_to_name(digest->digest_type), digest->digest_str,
 	    TAILQ_NEXT(digest, entries) ? "," : "");
 	if (len < 0 || len >= (int)bufsiz - (cp - buf))
@@ -193,8 +193,8 @@ format_cmnd(struct sudo_command *c, bool negated)
 	cp += len;
     }
 
-    len = snprintf(cp, bufsiz - (cp - buf), "%s%s%s%s", negated ? "!" : "",
-	cmnd, c->args ? " " : "", c->args ? c->args : "");
+    len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s%s%s%s",
+	negated ? "!" : "", cmnd, c->args ? " " : "", c->args ? c->args : "");
     if (len < 0 || len >= (int)bufsiz - (cp - buf))
 	sudo_fatalx(U_("internal error, %s overflow"), __func__);
 
@@ -206,8 +206,9 @@ format_cmnd(struct sudo_command *c, bool negated)
  * See print_member_int() in parse.c.
  */
 static void
-print_member_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
-    int type, bool negated, bool quoted, int alias_type, bool expand_aliases)
+print_member_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
+    char *name, int type, bool negated, bool quoted, short alias_type,
+    bool expand_aliases)
 {
     struct alias *a;
     char *str;
@@ -258,8 +259,8 @@ print_member_csv(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
  * See print_member_int() in parse.c.
  */
 static void
-print_member_list_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    struct member_list *members, bool negated, int alias_type,
+print_member_list_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
+    struct member_list *members, bool negated, short alias_type,
     bool expand_aliases)
 {
     struct member *m, *next;
@@ -287,10 +288,11 @@ print_member_list_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print the binding for a Defaults entry of the specified type.
  */
 static void
-print_defaults_binding_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_defaults_binding_csv(FILE *fp,
+    const struct sudoers_parse_tree *parse_tree,
      struct defaults_binding *binding, int type, bool expand_aliases)
 {
-    int alias_type;
+    short alias_type;
     debug_decl(print_defaults_binding_csv, SUDOERS_DEBUG_UTIL);
 
     if (type != DEFAULTS) {
@@ -312,7 +314,7 @@ print_defaults_binding_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * and boolean flags use true/false for the value.
  */
 static bool
-print_defaults_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_defaults_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     bool expand_aliases)
 {
     struct defaults *def;
@@ -377,8 +379,7 @@ print_defaults_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Callback for alias_apply() to print an alias entry.
  */
 static int
-print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
-)
+print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
 {
     FILE *fp = v;
     const char *title;
@@ -400,7 +401,7 @@ print_alias_csv(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
  * Print all aliases in CSV format:
  */
 static bool
-print_aliases_csv(FILE *fp, struct sudoers_parse_tree *parse_tree)
+print_aliases_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree)
 {
     debug_decl(print_aliases_csv, SUDOERS_DEBUG_UTIL);
 
@@ -410,7 +411,8 @@ print_aliases_csv(FILE *fp, struct sudoers_parse_tree *parse_tree)
     /* Heading line. */
     fputs("alias_type,alias_name,members\n", fp);
 
-    alias_apply(parse_tree, print_alias_csv, fp);
+    /* print_alias_csv() does not modify parse_tree. */
+    alias_apply((struct sudoers_parse_tree *)parse_tree, print_alias_csv, fp);
     putc('\n', fp);
 
     debug_return_bool(true);
@@ -420,7 +422,7 @@ print_aliases_csv(FILE *fp, struct sudoers_parse_tree *parse_tree)
  * Print a Cmnd_Spec in CSV format.
  */
 static void
-print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_cmndspec_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct cmndspec *cs, struct cmndspec **nextp,
     struct defaults_list *options, bool expand_aliases)
 {
@@ -430,7 +432,7 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct member *m;
     struct tm gmt;
     bool last_one, quoted = false;
-    int len;
+    size_t len;
     debug_decl(print_cmndspec_csv, SUDOERS_DEBUG_UTIL);
 
     if (cs->runasuserlist != NULL) {
@@ -553,6 +555,14 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
     }
 #endif /* HAVE_SELINUX */
 
+#ifdef HAVE_APPARMOR
+    if (cs->apparmor_profile != NULL) {
+	fprintf(fp, "%sapparmor_profile=%s,", need_comma ? "," : "",
+	    cs->apparmor_profile);
+	need_comma = true;
+    }
+#endif /* HAVE_APPARMOR */
+
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
@@ -566,12 +576,15 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	}
     }
 #endif /* HAVE_PRIV_SET */
+#ifdef __clang_analyzer__
+    (void)&need_comma;
+#endif
     putc('"', fp);
     putc(',', fp);
 
     /*
      * Merge adjacent commands with matching tags, runas, SELinux
-     * role/type and Solaris priv settings.
+     * role/type, AppArmor profiles and Solaris priv settings.
      */
     for (;;) {
 	/* Does the next entry differ only in the command itself? */
@@ -585,6 +598,9 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
 #ifdef HAVE_SELINUX
 	    || cs->role != next->role || cs->type != next->type
 #endif /* HAVE_SELINUX */
+#ifdef HAVE_APPARMOR
+	    || cs->apparmor_profile != next->apparmor_profile
+#endif /* HAVE_APPARMOR  */
 	    || cs->runchroot != next->runchroot || cs->runcwd != next->runcwd;
 
 	if (!quoted && !last_one) {
@@ -612,7 +628,7 @@ print_cmndspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print a single User_Spec.
  */
 static bool
-print_userspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspec_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct userspec *us, bool expand_aliases)
 {
     struct privilege *priv;
@@ -646,7 +662,7 @@ print_userspec_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print User_Specs.
  */
 static bool
-print_userspecs_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspecs_csv(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     bool expand_aliases)
 {
     struct userspec *us;
@@ -669,7 +685,7 @@ print_userspecs_csv(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Export the parsed sudoers file in CSV format.
  */
 bool
-convert_sudoers_csv(struct sudoers_parse_tree *parse_tree,
+convert_sudoers_csv(const struct sudoers_parse_tree *parse_tree,
     const char *output_file, struct cvtsudoers_config *conf)
 {
     bool ret = true;

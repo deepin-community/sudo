@@ -29,8 +29,8 @@
 #include <grp.h>
 #include <pwd.h>
 
-#include "sudoers.h"
-#include "pwutil.h"
+#include <sudoers.h>
+#include <pwutil.h>
 
 /*
  * Expand leading tilde in *path, which must be dynamically allocated.
@@ -74,7 +74,7 @@ expand_tilde(char **path, const char *user)
 	    *slash = '\0';
 	    opath = slash + 1;
 	} else {
-	    opath = "";
+	    opath = (char *)"";
 	}
     }
     pw = sudo_getpwnam(user);

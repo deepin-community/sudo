@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -32,7 +37,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #if defined(HAVE_STDINT_H)
 # include <stdint.h>
@@ -45,19 +50,19 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_conf.h"
-#include "sudo_debug.h"
-#include "sudo_event.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_json.h"
-#include "sudo_iolog.h"
-#include "sudo_rand.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_conf.h>
+#include <sudo_debug.h>
+#include <sudo_event.h>
+#include <sudo_eventlog.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_json.h>
+#include <sudo_iolog.h>
+#include <sudo_rand.h>
+#include <sudo_util.h>
 
-#include "logsrvd.h"
+#include <logsrvd.h>
 
 struct logsrvd_info_closure {
     InfoMessage **info_msgs;
@@ -82,7 +87,7 @@ set_random_drop(const char *dropstr)
 }
 
 static bool
-logsrvd_json_log_cb(struct json_container *json, void *v)
+logsrvd_json_log_cb(struct json_container *jsonc, void *v)
 {
     struct logsrvd_info_closure *closure = v;
     struct json_value json_value;
@@ -96,35 +101,71 @@ logsrvd_json_log_cb(struct json_container *json, void *v)
 	case INFO_MESSAGE__VALUE_NUMVAL:
 	    json_value.type = JSON_NUMBER;
 	    json_value.u.number = info->u.numval;
-	    if (!sudo_json_add_value(json, info->key, &json_value))
+	    if (!sudo_json_add_value(jsonc, info->key, &json_value))
 		goto bad;
 	    break;
 	case INFO_MESSAGE__VALUE_STRVAL:
+	    if (info->u.strval == NULL) {
+		sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+		    "local", info->key);
+		break;
+	    }
 	    json_value.type = JSON_STRING;
 	    json_value.u.string = info->u.strval;
-	    if (!sudo_json_add_value(json, info->key, &json_value))
+	    if (!sudo_json_add_value(jsonc, info->key, &json_value))
 		goto bad;
 	    break;
 	case INFO_MESSAGE__VALUE_STRLISTVAL: {
 	    InfoMessage__StringList *strlist = info->u.strlistval;
 	    size_t n;
 
-	    if (!sudo_json_open_array(json, info->key))
+	    if (strlist == NULL) {
+		sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+		    "local", info->key);
+		break;
+	    }
+	    if (!sudo_json_open_array(jsonc, info->key))
 		goto bad;
 	    for (n = 0; n < strlist->n_strings; n++) {
+		if (strlist->strings[n] == NULL) {
+		    sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+			"local", info->key);
+		    break;
+		}
 		json_value.type = JSON_STRING;
 		json_value.u.string = strlist->strings[n];
-		if (!sudo_json_add_value(json, NULL, &json_value))
+		if (!sudo_json_add_value(jsonc, NULL, &json_value))
 		    goto bad;
 	    }
-	    if (!sudo_json_close_array(json))
+	    if (!sudo_json_close_array(jsonc))
+		goto bad;
+	    break;
+	}
+	case INFO_MESSAGE__VALUE_NUMLISTVAL: {
+	    InfoMessage__NumberList *numlist = info->u.numlistval;
+	    size_t n;
+
+	    if (numlist == NULL) {
+		sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+		    "local", info->key);
+		break;
+	    }
+	    if (!sudo_json_open_array(jsonc, info->key))
+		goto bad;
+	    for (n = 0; n < numlist->n_numbers; n++) {
+		json_value.type = JSON_NUMBER;
+		json_value.u.number = numlist->numbers[n];
+		if (!sudo_json_add_value(jsonc, NULL, &json_value))
+		    goto bad;
+	    }
+	    if (!sudo_json_close_array(jsonc))
 		goto bad;
 	    break;
 	}
 	default:
-	    sudo_warnx(U_("unexpected type_case value %d in %s from %s"),
+	    sudo_warnx(U_("unexpected value_case %d in %s from %s"),
 		info->value_case, "InfoMessage", "local");
-	    goto bad;
+	    break;
 	}
     }
     debug_return_bool(true);
@@ -263,7 +304,7 @@ done:
 static bool
 store_exit_info_json(int dfd, struct eventlog *evlog)
 {
-    struct json_container json = { 0 };
+    struct json_container jsonc = { 0 };
     struct json_value json_value;
     struct iovec iov[3];
     bool ret = false;
@@ -271,7 +312,7 @@ store_exit_info_json(int dfd, struct eventlog *evlog)
     off_t pos;
     debug_decl(store_exit_info_json, SUDO_DEBUG_UTIL);
 
-    if (!sudo_json_init(&json, 4, false, false))
+    if (!sudo_json_init(&jsonc, 4, false, false, false))
         goto done;
 
     fd = iolog_openat(dfd, "log.json", O_RDWR);
@@ -286,38 +327,38 @@ store_exit_info_json(int dfd, struct eventlog *evlog)
     }
 
     if (sudo_timespecisset(&evlog->run_time)) {
-	if (!sudo_json_open_object(&json, "run_time"))
+	if (!sudo_json_open_object(&jsonc, "run_time"))
 	    goto done;
 
 	json_value.type = JSON_NUMBER;
 	json_value.u.number = evlog->run_time.tv_sec;
-	if (!sudo_json_add_value(&json, "seconds", &json_value))
+	if (!sudo_json_add_value(&jsonc, "seconds", &json_value))
 	    goto done;
 
 	json_value.type = JSON_NUMBER;
 	json_value.u.number = evlog->run_time.tv_nsec;
-	if (!sudo_json_add_value(&json, "nanoseconds", &json_value))
+	if (!sudo_json_add_value(&jsonc, "nanoseconds", &json_value))
 	    goto done;
 
-	if (!sudo_json_close_object(&json))
+	if (!sudo_json_close_object(&jsonc))
 	    goto done;
     }
 
     if (evlog->signal_name != NULL) {
 	json_value.type = JSON_STRING;
 	json_value.u.string = evlog->signal_name;
-	if (!sudo_json_add_value(&json, "signal", &json_value))
+	if (!sudo_json_add_value(&jsonc, "signal", &json_value))
 	    goto done;
 
 	json_value.type = JSON_BOOL;
 	json_value.u.boolean = evlog->dumped_core;
-	if (!sudo_json_add_value(&json, "dumped_core", &json_value))
+	if (!sudo_json_add_value(&jsonc, "dumped_core", &json_value))
 	    goto done;
     }
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = evlog->exit_value;
-    if (!sudo_json_add_value(&json, "exit_value", &json_value))
+    if (!sudo_json_add_value(&jsonc, "exit_value", &json_value))
 	goto done;
 
     /* Back up to overwrite the final "\n}\n" */
@@ -329,11 +370,11 @@ store_exit_info_json(int dfd, struct eventlog *evlog)
     }
 
     /* Append the exit data and close the object. */
-    iov[0].iov_base = ",";
+    iov[0].iov_base = (char *)",";
     iov[0].iov_len = 1;
-    iov[1].iov_base = sudo_json_get_buf(&json);
-    iov[1].iov_len = sudo_json_get_len(&json);
-    iov[2].iov_base = "\n}\n";
+    iov[1].iov_base = sudo_json_get_buf(&jsonc);
+    iov[1].iov_len = sudo_json_get_len(&jsonc);
+    iov[2].iov_base = (char *)"\n}\n";
     iov[2].iov_len = 3;
     if (writev(fd, iov, 3) == -1) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
@@ -350,7 +391,7 @@ store_exit_info_json(int dfd, struct eventlog *evlog)
 done:
     if (fd != -1)
 	close(fd);
-    sudo_json_free(&json);
+    sudo_json_free(&jsonc);
     debug_return_bool(ret);
 }
 
@@ -363,8 +404,8 @@ store_exit_local(ExitMessage *msg, uint8_t *buf, size_t len,
     debug_decl(store_exit_local, SUDO_DEBUG_UTIL);
 
     if (msg->run_time != NULL) {
-	evlog->run_time.tv_sec = msg->run_time->tv_sec;
-	evlog->run_time.tv_nsec = msg->run_time->tv_nsec;
+	evlog->run_time.tv_sec = (time_t)msg->run_time->tv_sec;
+	evlog->run_time.tv_nsec = (long)msg->run_time->tv_nsec;
     }
     evlog->exit_value = msg->exit_value;
     if (msg->signal != NULL && msg->signal[0] != '\0') {
@@ -389,6 +430,8 @@ store_exit_local(ExitMessage *msg, uint8_t *buf, size_t len,
     }
 
     if (closure->log_io) {
+	mode_t mode;
+
 	/* Store the run time and exit status in log.json. */
 	if (!store_exit_info_json(closure->iolog_dir_fd, evlog)) {
 	    closure->errstr = _("error logging exit event");
@@ -396,7 +439,7 @@ store_exit_local(ExitMessage *msg, uint8_t *buf, size_t len,
 	}
 
 	/* Clear write bits from I/O timing file to indicate completion. */
-	mode_t mode = logsrvd_conf_iolog_mode();
+	mode = logsrvd_conf_iolog_mode();
 	CLR(mode, S_IWUSR|S_IWGRP|S_IWOTH);
 	if (fchmodat(closure->iolog_dir_fd, "timing", mode, 0) == -1) {
 	    sudo_warn("chmod 0%o %s/%s", (unsigned int)mode, "timing",
@@ -416,8 +459,8 @@ store_restart_local(RestartMessage *msg, uint8_t *buf, size_t len,
     int iofd;
     debug_decl(store_restart_local, SUDO_DEBUG_UTIL);
 
-    target.tv_sec = msg->resume_point->tv_sec;
-    target.tv_nsec = msg->resume_point->tv_nsec;
+    target.tv_sec = (time_t)msg->resume_point->tv_sec;
+    target.tv_nsec = (long)msg->resume_point->tv_nsec;
 
     /* We must allocate closure->evlog for iolog_path. */
     closure->evlog = calloc(1, sizeof(*closure->evlog));
@@ -501,8 +544,8 @@ store_alert_local(AlertMessage *msg, uint8_t *buf, size_t len,
 	if (closure->evlog == NULL)
 	    closure->evlog = evlog;
     }
-    alert_time.tv_sec = msg->alert_time->tv_sec;
-    alert_time.tv_nsec = msg->alert_time->tv_nsec;
+    alert_time.tv_sec = (time_t)msg->alert_time->tv_sec;
+    alert_time.tv_nsec = (long)msg->alert_time->tv_nsec;
 
     if (!eventlog_alert(evlog, 0, &alert_time, msg->reason, NULL)) {
 	closure->errstr = _("error logging alert event");
@@ -562,7 +605,7 @@ store_iobuf_local(int iofd, IoBuffer *iobuf, uint8_t *buf, size_t buflen,
 
     /* Write timing data. */
     if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
+	    (size_t)len, &errstr)) {
 	sudo_warnx(U_("%s/%s: %s"), evlog->iolog_path,
 	    iolog_fd_to_name(IOFD_TIMING), errstr);
 	goto bad;
@@ -610,7 +653,7 @@ store_winsize_local(ChangeWindowSize *msg, uint8_t *buf, size_t buflen,
 
     /* Write timing data. */
     if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
+	    (size_t)len, &errstr)) {
 	sudo_warnx(U_("%s/%s: %s"), closure->evlog->iolog_path,
 	    iolog_fd_to_name(IOFD_TIMING), errstr);
 	goto bad;
@@ -645,7 +688,7 @@ store_suspend_local(CommandSuspend *msg, uint8_t *buf, size_t buflen,
 
     /* Write timing data. */
     if (!iolog_write(&closure->iolog_files[IOFD_TIMING], tbuf,
-	    len, &errstr)) {
+	    (size_t)len, &errstr)) {
 	sudo_warnx(U_("%s/%s: %s"), closure->evlog->iolog_path,
 	    iolog_fd_to_name(IOFD_TIMING), errstr);
 	goto bad;

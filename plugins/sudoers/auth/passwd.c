@@ -34,14 +34,15 @@
 #include <unistd.h>
 #include <pwd.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 #include "sudo_auth.h"
 
 #define DESLEN			13
 #define HAS_AGEINFO(p, l)	(l == 18 && p[DESLEN] == ',')
 
 int
-sudo_passwd_init(struct passwd *pw, sudo_auth *auth)
+sudo_passwd_init(const struct sudoers_context *ctx, struct passwd *pw,
+    sudo_auth *auth)
 {
     debug_decl(sudo_passwd_init, SUDOERS_DEBUG_AUTH);
 
@@ -50,23 +51,24 @@ sudo_passwd_init(struct passwd *pw, sudo_auth *auth)
 	debug_return_int(AUTH_SUCCESS);
 
 #ifdef HAVE_SKEYACCESS
-    if (skeyaccess(pw, user_tty, NULL, NULL) == 0)
+    if (skeyaccess(pw, ctx->user.tty, NULL, NULL) == 0)
 	debug_return_int(AUTH_FAILURE);
 #endif
     sudo_setspent();
     auth->data = sudo_getepw(pw);
     sudo_endspent();
-    debug_return_int(auth->data ? AUTH_SUCCESS : AUTH_FATAL);
+    debug_return_int(auth->data ? AUTH_SUCCESS : AUTH_ERROR);
 }
 
 #ifdef HAVE_CRYPT
 int
-sudo_passwd_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_passwd_verify(const struct sudoers_context *ctx, struct passwd *pw,
+    const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
-    char sav, *epass;
+    char des_pass[9], *epass;
     char *pw_epasswd = auth->data;
     size_t pw_len;
-    int matched = 0;
+    int ret;
     debug_decl(sudo_passwd_verify, SUDOERS_DEBUG_AUTH);
 
     /* An empty plain-text password must match an empty encrypted password. */
@@ -75,12 +77,12 @@ sudo_passwd_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_c
 
     /*
      * Truncate to 8 chars if standard DES since not all crypt()'s do this.
-     * If this turns out not to be safe we will have to use OS #ifdef's (sigh).
      */
-    sav = pass[8];
     pw_len = strlen(pw_epasswd);
-    if (pw_len == DESLEN || HAS_AGEINFO(pw_epasswd, pw_len))
-	pass[8] = '\0';
+    if (pw_len == DESLEN || HAS_AGEINFO(pw_epasswd, pw_len)) {
+	(void)strlcpy(des_pass, pass, sizeof(des_pass));
+	pass = des_pass;
+    }
 
     /*
      * Normal UN*X password check.
@@ -88,39 +90,52 @@ sudo_passwd_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_c
      * only compare the first DESLEN characters in that case.
      */
     epass = (char *) crypt(pass, pw_epasswd);
-    pass[8] = sav;
+    ret = AUTH_FAILURE;
     if (epass != NULL) {
-	if (HAS_AGEINFO(pw_epasswd, pw_len) && strlen(epass) == DESLEN)
-	    matched = !strncmp(pw_epasswd, epass, DESLEN);
-	else
-	    matched = !strcmp(pw_epasswd, epass);
+	if (HAS_AGEINFO(pw_epasswd, pw_len) && strlen(epass) == DESLEN) {
+	    if (strncmp(pw_epasswd, epass, DESLEN) == 0)
+		ret = AUTH_SUCCESS;
+	} else {
+	    if (strcmp(pw_epasswd, epass) == 0)
+		ret = AUTH_SUCCESS;
+	}
     }
 
-    debug_return_int(matched ? AUTH_SUCCESS : AUTH_FAILURE);
+    explicit_bzero(des_pass, sizeof(des_pass));
+
+    debug_return_int(ret);
 }
 #else
 int
-sudo_passwd_verify(struct passwd *pw, char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
+sudo_passwd_verify(const struct sudoers_context *ctx, struct passwd *pw,
+    const char *pass, sudo_auth *auth, struct sudo_conv_callback *callback)
 {
     char *pw_passwd = auth->data;
-    int matched;
+    int ret;
     debug_decl(sudo_passwd_verify, SUDOERS_DEBUG_AUTH);
 
     /* Simple string compare for systems without crypt(). */
-    matched = !strcmp(pass, pw_passwd);
+    if (strcmp(pass, pw_passwd) == 0)
+	ret = AUTH_SUCCESS;
+    else
+	ret = AUTH_FAILURE;
 
-    debug_return_int(matched ? AUTH_SUCCESS : AUTH_FAILURE);
+    debug_return_int(ret);
 }
 #endif
 
 int
-sudo_passwd_cleanup(struct passwd *pw, sudo_auth *auth, bool force)
+sudo_passwd_cleanup(const struct sudoers_context *ctx, struct passwd *pw,
+    sudo_auth *auth, bool force)
 {
-    char *pw_epasswd = auth->data;
     debug_decl(sudo_passwd_cleanup, SUDOERS_DEBUG_AUTH);
 
-    if (pw_epasswd != NULL)
-	freezero(pw_epasswd, strlen(pw_epasswd));
+    if (auth->data != NULL) {
+	/* Zero out encrypted password before freeing. */
+	size_t len = strlen((char *)auth->data);
+	freezero(auth->data, len);
+	auth->data = NULL;
+    }
 
     debug_return_int(AUTH_SUCCESS);
 }

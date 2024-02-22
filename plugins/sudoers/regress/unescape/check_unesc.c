@@ -24,11 +24,11 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 struct test_data {
-    char *input;
-    char *result;
+    const char *input;
+    const char *result;
     size_t result_len;
     size_t bufsize;
 };
@@ -139,7 +139,7 @@ test_strvec_join(char sep, int *ntests_out, int *errors_out)
     /* Simulate: sudoedit -s '\' `perl -e 'print "A" x 65536'` */
     memset(buf, 'A', sizeof(buf));
     buf[sizeof(buf) - 1] = '\0';
-    argv[0] = "\\";
+    argv[0] = (char *)"\\";
     argv[1] = buf;
     argv[2] = NULL;
 
@@ -167,9 +167,22 @@ test_strvec_join(char sep, int *ntests_out, int *errors_out)
 int
 main(int argc, char *argv[])
 {
-    int ntests = 0, errors = 0;
+    int ch, ntests = 0, errors = 0;
 
     initprogname(argc > 0 ? argv[0] : "check_unesc");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignored */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     /* strlcpy_unescape tests */
     test_strlcpy_unescape(&ntests, &errors);

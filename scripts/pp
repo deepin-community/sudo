@@ -1,6 +1,6 @@
 #!/bin/sh
-# Copyright 2021 One Identity LLC. ALL RIGHTS RESERVED
-pp_revision="20211119"
+# Copyright 2023 One Identity LLC. ALL RIGHTS RESERVED
+pp_revision="20231108"
  # Copyright 2018 One Identity LLC.  ALL RIGHTS RESERVED.
  #
  # Redistribution and use in source and binary forms, with or without
@@ -794,6 +794,11 @@ pp_strip_binaries () {
     fi
 }
 
+pp_is_version_greater () {
+  smaller_version="$(echo -e "$1\n$2" | sort -V | head -1)"
+  test x"$smaller_version" = x"$1"
+}
+
 pp_if_true=0
 pp_if_false=0
 
@@ -1293,6 +1298,7 @@ pp_files_expand () {
     if test $# -gt 0; then
         _a=`eval echo \"$1\"`
 	case ",$_a," in *,volatile,*) _flags="${_flags}v";; esac
+	case ",$_a," in *,missingok,*) _flags="${_flags}m";; esac
 	case ",$_a," in *,optional,*) _optional=true;; esac
 	case ",$_a," in *,symlink,*) _has_target=true;; esac
 	case ",$_a," in *,ignore-others,*) _flags="${_flags}i";; esac
@@ -1947,6 +1953,10 @@ pp_backend_aix () {
                 pp_debug "$cmp ROOT $pp_aix_bff_name.$ex.inventory:"
                 cat $root_wrkdir/$pp_aix_bff_name.$ex.inventory
             fi >&2
+
+            for fileset in ${pp_aix_deprecated_filesets}; do
+                echo "$fileset"
+            done >$user_wrkdir/$pp_aix_bff_name.$ex.namelist
 
 	    if test x"" != x"${pp_aix_copyright:-$copyright}"; then
 	        echo "${pp_aix_copyright:-$copyright}" > $user_wrkdir/$pp_aix_bff_name.$ex.copyright
@@ -3937,7 +3947,7 @@ pp_deb_check_required_programs () {
     needed= notfound=
     for prog in dpkg dpkg-deb install md5sum fakeroot
     do
-        if which $prog 2>/dev/null >/dev/null; then
+        if command -v $prog 2>/dev/null >/dev/null; then
 	    pp_debug "$prog: found"
 	else
 	    pp_debug "$prog: not found"
@@ -5569,6 +5579,8 @@ pp_rpm_detect_distro () {
        pp_rpm_distro=`sed -n \
          -e 's/^Red Hat Linux.*release \([0-9][0-9\.]*\).*/rh\1/p' \
          -e 's/^Red Hat Enterprise Linux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
+         -e 's/^Rocky Linux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
+         -e 's/^AlmaLinux.*release \([0-9][0-9\.]*\).*/rhel\1/p' \
          -e 's/^CentOS.*release \([0-9][0-9\.]*\).*/centos\1/p' \
        /etc/redhat-release`
     elif test -f /etc/SuSE-release; then
@@ -5600,7 +5612,7 @@ pp_rpm_detect_distro () {
 pp_rpm_detect_rpmbuild () {
     local cmd
     for cmd in rpmbuild rpm; do
-        if `which $cmd > /dev/null 2>&1`; then
+        if command -v $cmd > /dev/null 2>&1; then
             echo $cmd
             return 0
         fi
@@ -5700,7 +5712,10 @@ pp_rpm_writefiles () {
 	    test x"$farch" = x"noarch" || pp_add_to_list pp_rpm_arch_seen $farch
 	fi
 
-	case $f in *v*) _l="%config(noreplace) $_l";; esac
+	case $f in
+		*v*) _l="%config(noreplace) $_l";;
+		*m*) _l="%config(missingok) $_l";;
+	esac
 	echo "$_l"
     done
     echo
@@ -6319,7 +6334,7 @@ pp_rpm_service_group_make_init_script () {
     local script=/etc/init.d/$grp
     local out=$pp_destdir$script
 
-    pp_add_file_if_missing $script run 755 || return 0
+    pp_add_file_if_missing $script run 755 m || return 0
 
     cat <<-. >>$out
 	#!/bin/sh
@@ -6409,7 +6424,7 @@ pp_rpm_service_make_service_files () {
     local out=$pp_destdir$script
     local _process _cmd _rpmlevels
 
-    pp_add_file_if_missing $script run 755 || return 0
+    pp_add_file_if_missing $script run 755 m || return 0
 
     #-- start out as an empty shell script
     cat <<-'.' >$out
@@ -7929,7 +7944,7 @@ pp_bsd_munge_text () {
 }
 
 pp_backend_bsd_detect () {
-	test x"$1" = x"FreeBSD"
+    test x"$1" = x"FreeBSD" -o x"$1" = x"DragonFly"
 }
 
 pp_backend_bsd_init () {
@@ -7937,7 +7952,7 @@ pp_backend_bsd_init () {
     # Get the OS revision
     pp_bsd_detect_os
 
-    # Get the arch (i386/amd64)
+    # Get the arch (i386/x86_64)
     pp_bsd_detect_arch
 
     pp_bsd_name=
@@ -7951,6 +7966,13 @@ pp_backend_bsd_init () {
     pp_bsd_prefix="/usr/local/"
     pp_bsd_desc=
     pp_bsd_message=
+
+    # Newer "pkg" (>=1.17.0) generates package.pkg, before that package.txz.
+    if pp_is_version_greater 1.17.0 "$(pkg --version)"; then
+        pp_bsd_pkg_sfx=pkg
+    else
+        pp_bsd_pkg_sfx=txz
+    fi
 
     # pp_bsd_category must be in array format comma separated
     # pp_bsd_category=[security,network]
@@ -7999,7 +8021,7 @@ pp_bsd_check_required_programs () {
     # list of programs FreeBSD needs in order to create a binary package
     for prog in ${pp_bsd_required_programs:-"pkg"}
     do
-        if which $prog 2>&1 > /dev/null; then
+        if command -v $prog 2>&1 > /dev/null; then
             pp_debug "$prog: found"
         else
             pp_debug "$prog: not found"
@@ -8028,7 +8050,7 @@ pp_bsd_detect_os () {
 pp_bsd_detect_arch() {
     pp_bsd_platform="`uname -m`" 
     case $pp_bsd_platform in
-        amd64) pp_bsd_platform_std=x86_64;;
+        amd64|x86_64) pp_bsd_platform_std=x86_64;;
         i386)  pp_bsd_platform_std=i386;;
         *)     pp_bsd_platform_std=unknown;;
     esac
@@ -8203,8 +8225,8 @@ pp_bsd_make_data() {
                             mkdir -p `dirname "$datadir$path"`
                         fi
 
-                        pp_debug "install -D $datadir -o $o -g $g -h sha256 -m ${m} -v $pp_destdir$p $datadir$path"
-                        pp_bsd_fakeroot install -D $datadir -o $o -g $g -h sha256 -m ${m} -v $pp_destdir$p $datadir$path
+                        pp_debug "install -D $datadir -o $o -g $g -m ${m} -v $pp_destdir$p $datadir$path"
+                        pp_bsd_fakeroot install -D $datadir -o $o -g $g -m ${m} -v $pp_destdir$p $datadir$path
                         echo "  \"$path\": \"-\", \"$path\": {uname: $o, gname: $g, perm: ${m}}" >> $outfilelist
                         ;; 
                 esac
@@ -8358,12 +8380,12 @@ pp_backend_bsd() {
 
 pp_bsd_name () {
     typeset cmp="${1:-run}"
-    echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.txz"
+    echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.${pp_bsd_pkg_sfx}"
 }
 
 pp_backend_bsd_names () {
     for cmp in $pp_components; do
-    	echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.txz"
+    	echo `pp_bsd_cmp_full_name $cmp`"-${pp_bsd_version:-$version}.${pp_bsd_pkg_sfx}"
     done
 }
 
@@ -8379,8 +8401,8 @@ pp_backend_bsd_probe () {
 
 pp_backend_bsd_vas_platforms() {
     case "${pp_bsd_platform_std}" in
-        x86_64) echo "FreeBSD-x86_64.txz FreeBSD-i386.txz";;
-        i386)   echo "FreeBSD-i386.txz";;
+        x86_64) echo "FreeBSD-x86_64.${pp_bsd_pkg_sfx} FreeBSD-i386.${pp_bsd_pkg_sfx}";;
+        i386)   echo "FreeBSD-i386.${pp_bsd_pkg_sfx}";;
         *) pp_die "unknown architecture $pp_bsd_platform_std";;
     esac
 }
@@ -8960,22 +8982,42 @@ pp_systemd_service_install_common () {
                 # we do this so we do not "orphan" the process. Because init started it and if we enable systemd
                 # it will not know about this process and will not be able to stop it.
                 if [ -x "/etc/init.d/$svc" ]; then
-                    /etc/init.d/$svc status > /dev/null 2>&1
+                    output="$(/etc/init.d/$svc status 2>&1)"
                     RUNNING=$?
                     if [ $RUNNING -eq 0 ]; then
-                        /etc/init.d/$svc stop > /dev/null 2>&1
+                        case "$output" in
+                            *"not running"*)
+                                # systemd is reporting the status (compatibility package is installed)
+                                RUNNING=1
+                                ;;
+                            *)  # it is really running
+                                /etc/init.d/$svc stop > /dev/null 2>&1
+                                ;;
+                        esac
                     fi
-                else
-                    RUNNING=1
+                fi
+
+                # If the service is not running according to its sysv script (eg. systemd service
+                # is not using a pidfile the sysv script needs), or its sysv script is not present any more,
+                # check how systemd thinks.
+                # We also try to restart the service in case something went wrong with it.
+                if $systemctl_cmd is-active "$svc" >/dev/null 2>&1 || $systemctl_cmd is-failed "$svc" >/dev/null 2>&1; then
+                        $systemctl_cmd stop "$svc" >/dev/null 2>&1
+                        RUNNING=0
                 fi
 
                 # Enable the $svc.service
                 $systemctl_cmd daemon-reload >/dev/null 2>&1
+
+                # We do not need the init.d script any more, and it causes problems on SLES
+                # where systemd sysv compatibility is enforced and broken on default installs
+                rm -f "/etc/init.d/$svc"
+
                 $systemctl_cmd enable $svc.service >/dev/null 2>&1
 
                 # Now that the service has been enabled, start it again if it was running before.
                 if [ $RUNNING -eq 0 ]; then
-                    /etc/init.d/$svc start > /dev/null 2>&1
+                    $systemctl_cmd start $svc.service >/dev/null 2>&1
                 fi
             fi
         }
@@ -9040,6 +9082,8 @@ pp_systemd_service_remove_common () {
             if test -z "$systemctl_cmd"; then
                 _pp_systemd_init
             fi
+
+            $systemctl_cmd stop $svc.service > /dev/null 2>&1
 
             # Remove the systemd unit service file
             if [ "x$systemd_service_dir" != "x$systemd_system_unit_dir" ]; then

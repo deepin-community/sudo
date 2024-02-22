@@ -26,10 +26,10 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
-#include "sudo_fatal.h"
-#include "sudo_iolog.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
+#include <sudo_fatal.h>
+#include <sudo_iolog.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -49,7 +49,7 @@ static struct parse_delay_test {
 /*
  * Test iolog_parse_delay()
  */
-void
+static void
 test_parse_delay(int *ntests, int *nerrors)
 {
     unsigned int i;
@@ -84,7 +84,7 @@ test_parse_delay(int *ntests, int *nerrors)
 	    continue;
 	}
     }
-    (*ntests) += i;
+    (*ntests) += (int)i;
 }
 
 static struct adjust_delay_test {
@@ -106,7 +106,7 @@ static struct adjust_delay_test {
 /*
  * Test iolog_adjust_delay()
  */
-void
+static void
 test_adjust_delay(int *ntests, int *nerrors)
 {
     unsigned int i;
@@ -124,7 +124,7 @@ test_adjust_delay(int *ntests, int *nerrors)
 	    (*nerrors)++;
 	}
     }
-    (*ntests) += i;
+    (*ntests) += (int)i;
 }
 
 int

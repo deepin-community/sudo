@@ -27,8 +27,8 @@
 
 #include <signal.h>
 
-#include "sudo_compat.h"
-#include "sudo_gettext.h"
+#include <sudo_compat.h>
+#include <sudo_gettext.h>
 
 #if defined(HAVE_DECL_SYS_SIGLIST) && HAVE_DECL_SYS_SIGLIST == 1
 # define sudo_sys_siglist	sys_siglist
@@ -47,6 +47,6 @@ sudo_strsignal(int signo)
     if (signo > 0 && signo < NSIG && sudo_sys_siglist[signo] != NULL)
 	return (char *)sudo_sys_siglist[signo];
     /* XXX - should be "Unknown signal: %d" */
-    return _("Unknown signal");
+    return (char *)_("Unknown signal");
 }
 #endif /* HAVE_STRSIGNAL */

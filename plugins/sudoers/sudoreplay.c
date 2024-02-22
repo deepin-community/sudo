@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -46,30 +46,31 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <regex.h>
 #include <signal.h>
 #ifdef HAVE_GETOPT_LONG
 # include <getopt.h>
 # else
-# include "compat/getopt.h"
+# include <compat/getopt.h>
 #endif /* HAVE_GETOPT_LONG */
 
-#include "pathnames.h"
-#include "sudo_compat.h"
-#include "sudo_conf.h"
-#include "sudo_debug.h"
-#include "sudo_event.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_iolog.h"
-#include "sudo_plugin.h"
-#include "sudo_queue.h"
-#include "sudo_util.h"
+#include <pathnames.h>
+#include <sudo_compat.h>
+#include <sudo_conf.h>
+#include <sudo_debug.h>
+#include <sudo_event.h>
+#include <sudo_eventlog.h>
+#include <sudo_lbuf.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_iolog.h>
+#include <sudo_plugin.h>
+#include <sudo_queue.h>
+#include <sudo_util.h>
 
-#include "logging.h"
+#include <logging.h>
 
 struct replay_closure {
     const char *iolog_dir;
@@ -89,9 +90,9 @@ struct replay_closure {
     bool interactive;
     bool suspend_wait;
     struct io_buffer {
-	unsigned int len; /* buffer length (how much produced) */
-	unsigned int off; /* write position (how much already consumed) */
-	unsigned int toread; /* how much remains to be read */
+	size_t len; /* buffer length (how much produced) */
+	size_t off; /* write position (how much already consumed) */
+	size_t toread; /* how much remains to be read */
 	int lastc;	  /* last char written */
 	char buf[64 * 1024];
     } iobuf;
@@ -175,28 +176,20 @@ extern time_t get_date(char *);
 static int list_sessions(int, char **, const char *, const char *, const char *);
 static int parse_expr(struct search_node_list *, char **, bool);
 static void read_keyboard(int fd, int what, void *v);
-static void help(void) __attribute__((__noreturn__));
 static int replay_session(int iolog_dir_fd, const char *iolog_dir,
     struct timespec *offset, struct timespec *max_wait, const char *decimal,
     bool interactive, bool suspend_wait);
 static void sudoreplay_cleanup(void);
-static void usage(int);
 static void write_output(int fd, int what, void *v);
 static void restore_terminal_size(void);
 static void setup_terminal(struct eventlog *evlog, bool interactive, bool resize);
+sudo_noreturn static void help(void);
+sudo_noreturn static void usage(void);
 
 #define VALID_ID(s) (isalnum((unsigned char)(s)[0]) && \
     isalnum((unsigned char)(s)[1]) && isalnum((unsigned char)(s)[2]) && \
     isalnum((unsigned char)(s)[3]) && isalnum((unsigned char)(s)[4]) && \
     isalnum((unsigned char)(s)[5]) && (s)[6] == '\0')
-
-#define IS_IDLOG(s) ( \
-    isalnum((unsigned char)(s)[0]) && isalnum((unsigned char)(s)[1]) && \
-    (s)[2] == '/' && \
-    isalnum((unsigned char)(s)[3]) && isalnum((unsigned char)(s)[4]) && \
-    (s)[5] == '/' && \
-    isalnum((unsigned char)(s)[6]) && isalnum((unsigned char)(s)[7]) && \
-    (s)[6] == '\0')
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -232,7 +225,7 @@ main(int argc, char *argv[])
 
     /* Read sudo.conf and initialize the debug subsystem. */
     if (sudo_conf_read(NULL, SUDO_CONF_DEBUG) == -1)
-	exit(EXIT_FAILURE);
+	return EXIT_FAILURE;
     sudo_debug_register(getprogname(), NULL, NULL,
 	sudo_conf_debug_files(getprogname()), -1);
 
@@ -276,9 +269,9 @@ main(int argc, char *argv[])
 	    if (dval <= 0.0) {
 		sudo_timespecclear(&max_delay_storage);
 	    } else {
-		max_delay_storage.tv_sec = dval;
-		max_delay_storage.tv_nsec =
-		    (dval - max_delay_storage.tv_sec) * 1000000000.0;
+		max_delay_storage.tv_sec = (time_t)dval;
+		max_delay_storage.tv_nsec = (long)
+		    ((dval - (double)max_delay_storage.tv_sec) * 1000000000.0);
 	    }
 	    max_delay = &max_delay_storage;
 	    break;
@@ -302,7 +295,7 @@ main(int argc, char *argv[])
 	    exitcode = EXIT_SUCCESS;
 	    goto done;
 	default:
-	    usage(1);
+	    usage();
 	    /* NOTREACHED */
 	}
 
@@ -316,7 +309,7 @@ main(int argc, char *argv[])
     }
 
     if (argc != 1)
-	usage(1);
+	usage();
 
     /* By default we replay stdout, stderr and ttyout. */
     if (def_filter) {
@@ -373,6 +366,10 @@ main(int argc, char *argv[])
     if ((evlog = iolog_parse_loginfo(iolog_dir_fd, iolog_dir)) == NULL)
 	goto done;
     printf(_("Replaying sudo session: %s"), evlog->command);
+    if (evlog->runargv != NULL && evlog->runargv[0] != NULL) {
+	for (i = 1; evlog->runargv[i] != NULL; i++)
+	    printf(" %s", evlog->runargv[i]);
+    }
 
     /* Setup terminal if appropriate. */
     if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
@@ -632,7 +629,9 @@ setup_terminal(struct eventlog *evlog, bool interactive, bool resize)
     /* Open fd for /dev/tty and set to raw mode. */
     if (interactive) {
 	ttyfd = open(_PATH_TTY, O_RDWR);
-	while (!sudo_term_raw(ttyfd, 1)) {
+	if (ttyfd == -1)
+	    sudo_fatal("%s", U_("unable to set tty to raw mode"));
+	while (!sudo_term_raw(ttyfd, SUDO_TERM_ISIG)) {
 	    if (errno != EINTR)
 		sudo_fatal("%s", U_("unable to set tty to raw mode"));
 	    kill(getpid(), SIGTTOU);
@@ -663,7 +662,7 @@ setup_terminal(struct eventlog *evlog, bool interactive, bool resize)
 
     if (!terminal_can_resize) {
 	/* either not xterm or not interactive */
-	sudo_get_ttysize(&terminal_lines, &terminal_cols);
+	sudo_get_ttysize(ttyfd, &terminal_lines, &terminal_cols);
     }
 
     if (evlog->lines == terminal_lines && evlog->columns == terminal_cols) {
@@ -685,7 +684,7 @@ setup_terminal(struct eventlog *evlog, bool interactive, bool resize)
     }
 
     if (evlog->lines > terminal_lines || evlog->columns > terminal_cols) {
-	fputs(_("Warning: your terminal is too small to properly replay the log.\n"), stdout);
+	puts(_("Warning: your terminal is too small to properly replay the log."));
 	printf(_("Log geometry is %d x %d, your terminal's geometry is %d x %d."), evlog->lines, evlog->columns, terminal_lines, terminal_cols);
     }
     debug_return;
@@ -860,7 +859,7 @@ fill_iobuf(struct replay_closure *closure)
 	if (nread <= 0) {
 	    if (nread == 0) {
 		sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
-		    "%s/%s: premature EOF, expected %u bytes",
+		    "%s/%s: premature EOF, expected %zu bytes",
 		    closure->iolog_dir, iolog_fd_to_name(timing->event),
 		    closure->iobuf.toread);
 	    } else {
@@ -872,8 +871,8 @@ fill_iobuf(struct replay_closure *closure)
 		closure->iolog_dir, iolog_fd_to_name(timing->event), errstr);
 	    debug_return_bool(false);
 	}
-	closure->iobuf.toread -= nread;
-	closure->iobuf.len += nread;
+	closure->iobuf.toread -= (size_t)nread;
+	closure->iobuf.len += (size_t)nread;
     }
 
     debug_return_bool(true);
@@ -1099,10 +1098,11 @@ write_output(int fd, int what, void *v)
     struct replay_closure *closure = v;
     const struct timing_closure *timing = &closure->timing;
     struct io_buffer *iobuf = &closure->iobuf;
-    unsigned iovcnt = 1;
+    int iovcnt = 1;
     struct iovec iov[2];
     bool added_cr = false;
-    size_t nbytes, nwritten;
+    size_t nbytes;
+    ssize_t nwritten;
     debug_decl(write_output, SUDO_DEBUG_UTIL);
 
     /* Refill iobuf if there is more to read and buf is empty. */
@@ -1129,7 +1129,7 @@ write_output(int fd, int what, void *v)
 	    if ((nl == iov[0].iov_base && iobuf->lastc != '\r') ||
 		(nl != iov[0].iov_base && nl[-1] != '\r')) {
 		iov[0].iov_len = len;
-		iov[1].iov_base = "\r\n";
+		iov[1].iov_base = (char *)"\r\n";
 		iov[1].iov_len = 2;
 		iovcnt = 2;
 		nbytes = iov[0].iov_len + iov[1].iov_len;
@@ -1139,7 +1139,7 @@ write_output(int fd, int what, void *v)
     }
 
     nwritten = writev(fd, iov, iovcnt);
-    switch ((ssize_t)nwritten) {
+    switch (nwritten) {
     case -1:
 	if (errno != EINTR && errno != EAGAIN)
 	    sudo_fatal(U_("unable to write to %s"), "stdout");
@@ -1148,9 +1148,9 @@ write_output(int fd, int what, void *v)
 	/* Should not happen. */
 	break;
     default:
-	if (added_cr && nwritten >= nbytes - 1) {
+	if (added_cr && (size_t)nwritten >= nbytes - 1) {
 	    /* The last char written was either '\r' or '\n'. */
-	    iobuf->lastc = nwritten == nbytes ? '\n' : '\r';
+	    iobuf->lastc = (size_t)nwritten == nbytes ? '\n' : '\r';
 	} else {
 	    /* Stash the last char written. */
 	    iobuf->lastc = *((char *)iov[0].iov_base + nwritten);
@@ -1159,7 +1159,7 @@ write_output(int fd, int what, void *v)
 	    /* Subtract one for the carriage return we added above. */
 	    nwritten--;
 	}
-	iobuf->off += nwritten;
+	iobuf->off += (size_t)nwritten;
 	break;
     }
 
@@ -1269,7 +1269,7 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
 		goto bad;
 	    if (!sub_expr)
 		sudo_fatalx("%s", U_("unmatched ')' in expression"));
-	    debug_return_int(av - argv + 1);
+	    debug_return_int((int)(av - argv) + 1);
 	default:
 	bad:
 	    sudo_fatalx(U_("unknown search term \"%s\""), *av);
@@ -1312,7 +1312,52 @@ parse_expr(struct search_node_list *head, char *argv[], bool sub_expr)
     if (not)
 	sudo_fatalx("%s", U_("illegal trailing \"!\""));
 
-    debug_return_int(av - argv);
+    debug_return_int((int)(av - argv));
+}
+
+static char *
+expand_command(struct eventlog *evlog, char **newbuf)
+{
+    size_t len, bufsize = strlen(evlog->command) + 1;
+    char *cp, *buf;
+    int ac;
+    debug_decl(expand_command, SUDO_DEBUG_UTIL);
+
+    if (evlog->runargv == NULL || evlog->runargv[0] == NULL || evlog->runargv[1] == NULL) {
+	/* No arguments, we can use the command as-is. */
+	*newbuf = NULL;
+	debug_return_str(evlog->command);
+    }
+
+    /* Skip argv[0], we use evlog->command instead. */
+    for (ac = 1; evlog->runargv[ac] != NULL; ac++)
+	bufsize += strlen(evlog->runargv[ac]) + 1;
+
+    if ((buf = malloc(bufsize)) == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    cp = buf;
+
+    len = strlcpy(cp, evlog->command, bufsize);
+    if (len >= bufsize)
+	sudo_fatalx(U_("internal error, %s overflow"), __func__);
+    cp += len;
+    bufsize -= len;
+
+    for (ac = 1; evlog->runargv[ac] != NULL; ac++) {
+	if (bufsize < 2)
+	    sudo_fatalx(U_("internal error, %s overflow"), __func__);
+	*cp++ = ' ';
+	bufsize--;
+
+	len = strlcpy(cp, evlog->runargv[ac], bufsize);
+	if (len >= bufsize)
+	    sudo_fatalx(U_("internal error, %s overflow"), __func__);
+	cp += len;
+	bufsize -= len;
+    }
+
+    *newbuf = buf;
+    debug_return_str(buf);
 }
 
 static bool
@@ -1320,6 +1365,7 @@ match_expr(struct search_node_list *head, struct eventlog *evlog, bool last_matc
 {
     struct search_node *sn;
     bool res = false, matched = last_match;
+    char *tofree;
     int rc;
     debug_decl(match_expr, SUDO_DEBUG_UTIL);
 
@@ -1353,13 +1399,15 @@ match_expr(struct search_node_list *head, struct eventlog *evlog, bool last_matc
 		res = strcmp(sn->u.user, evlog->submituser) == 0;
 	    break;
 	case ST_PATTERN:
-	    rc = regexec(&sn->u.cmdre, evlog->command, 0, NULL, 0);
+	    rc = regexec(&sn->u.cmdre, expand_command(evlog, &tofree),
+		0, NULL, 0);
 	    if (rc && rc != REG_NOMATCH) {
 		char buf[BUFSIZ];
 		regerror(rc, &sn->u.cmdre, buf, sizeof(buf));
 		sudo_fatalx("%s", buf);
 	    }
 	    res = rc == REG_NOMATCH ? 0 : 1;
+	    free(tofree);
 	    break;
 	case ST_FROMDATE:
 	    res = sudo_timespeccmp(&evlog->submit_time, &sn->u.tstamp, >=);
@@ -1380,9 +1428,9 @@ match_expr(struct search_node_list *head, struct eventlog *evlog, bool last_matc
 }
 
 static int
-list_session(char *log_dir, regex_t *re, const char *user, const char *tty)
+list_session(struct sudo_lbuf *lbuf, char *log_dir, regex_t *re,
+    const char *user, const char *tty)
 {
-    char idbuf[7], *idstr, *cp;
     struct eventlog *evlog = NULL;
     const char *timestr;
     int ret = -1;
@@ -1395,45 +1443,24 @@ list_session(char *log_dir, regex_t *re, const char *user, const char *tty)
 	    evlog->runuser == NULL) {
 	goto done;
     }
+    evlog->iolog_file = log_dir + strlen(session_dir) + 1;
 
     /* Match on search expression if there is one. */
     if (!STAILQ_EMPTY(&search_expr) && !match_expr(&search_expr, evlog, true))
 	goto done;
 
-    /* Convert from /var/log/sudo-sessions/00/00/01 to 000001 */
-    cp = log_dir + strlen(session_dir) + 1;
-    if (IS_IDLOG(cp)) {
-	idbuf[0] = cp[0];
-	idbuf[1] = cp[1];
-	idbuf[2] = cp[3];
-	idbuf[3] = cp[4];
-	idbuf[4] = cp[6];
-	idbuf[5] = cp[7];
-	idbuf[6] = '\0';
-	idstr = idbuf;
-    } else {
-	/* Not an id, use as-is. */
-	idstr = cp;
-    }
-    /* XXX - print lines + cols? */
     timestr = get_timestr(evlog->submit_time.tv_sec, 1);
-    printf("%s : %s : ", timestr ? timestr : "invalid date", evlog->submituser);
-    if (evlog->submithost != NULL)
-	printf("HOST=%s ; ", evlog->submithost);
-    if (evlog->ttyname != NULL)
-	printf("TTY=%s ; ", evlog->ttyname);
-    if (evlog->runchroot != NULL)
-	printf("CHROOT=%s ; ", evlog->runchroot);
-    if (evlog->runcwd != NULL || evlog->cwd != NULL)
-	printf("CWD=%s ; ", evlog->runcwd ? evlog->runcwd : evlog->cwd);
-    printf("USER=%s ; ", evlog->runuser);
-    if (evlog->rungroup != NULL)
-	printf("GROUP=%s ; ", evlog->rungroup);
-    printf("TSID=%s ; COMMAND=%s\n", idstr, evlog->command);
+    sudo_lbuf_append_esc(lbuf, LBUF_ESC_CNTRL, "%s : %s : ",
+	timestr ? timestr : "invalid date", evlog->submituser);
 
-    ret = 0;
+    if (eventlog_store_sudo(EVLOG_ACCEPT, evlog, lbuf)) {
+	puts(lbuf->buf);
+	ret = 0;
+    }
 
 done:
+    lbuf->error = 0;
+    lbuf->len = 0;
     eventlog_free(evlog);
     debug_return_int(ret);
 }
@@ -1453,8 +1480,9 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
     DIR *d;
     struct dirent *dp;
     struct stat sb;
+    struct sudo_lbuf lbuf;
     size_t sdlen, sessions_len = 0, sessions_size = 0;
-    unsigned int i;
+    size_t i;
     int len;
     char pathbuf[PATH_MAX], **sessions = NULL;
 #ifdef HAVE_STRUCT_DIRENT_D_TYPE
@@ -1463,6 +1491,8 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
     const bool checked_type = false;
 #endif
     debug_decl(find_sessions, SUDO_DEBUG_UTIL);
+
+    sudo_lbuf_init(&lbuf, NULL, 0, NULL, 0);
 
     d = opendir(dir);
     if (d == NULL)
@@ -1523,11 +1553,11 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
 
 	    /* Check for dir with a log file. */
 	    if (lstat(pathbuf, &sb) == 0 && S_ISREG(sb.st_mode)) {
-		pathbuf[sdlen + len - 4] = '\0';
-		list_session(pathbuf, re, user, tty);
+		pathbuf[sdlen + (size_t)len - 4] = '\0';
+		list_session(&lbuf, pathbuf, re, user, tty);
 	    } else {
 		/* Strip off "/log" and recurse if a non-log dir. */
-		pathbuf[sdlen + len - 4] = '\0';
+		pathbuf[sdlen + (size_t)len - 4] = '\0';
 		if (checked_type ||
 		    (lstat(pathbuf, &sb) == 0 && S_ISDIR(sb.st_mode)))
 		    find_sessions(pathbuf, re, user, tty);
@@ -1535,6 +1565,7 @@ find_sessions(const char *dir, regex_t *re, const char *user, const char *tty)
 	}
 	free(sessions);
     }
+    sudo_lbuf_destroy(&lbuf);
 
     debug_return_int(0);
 }
@@ -1645,23 +1676,26 @@ read_keyboard(int fd, int what, void *v)
 }
 
 static void
-usage(int fatal)
+display_usage(FILE *fp)
 {
-    fprintf(fatal ? stderr : stdout,
-	_("usage: %s [-hnRS] [-d dir] [-m num] [-s num] ID\n"),
+    fprintf(fp, _("usage: %s [-hnRS] [-d dir] [-m num] [-s num] ID\n"),
 	getprogname());
-    fprintf(fatal ? stderr : stdout,
-	_("usage: %s [-h] [-d dir] -l [search expression]\n"),
+    fprintf(fp, _("usage: %s [-h] [-d dir] -l [search expression]\n"),
 	getprogname());
-    if (fatal)
-	exit(EXIT_FAILURE);
 }
 
-static void
+sudo_noreturn static void
+usage(void)
+{
+    display_usage(stderr);
+    exit(EXIT_FAILURE);
+}
+
+sudo_noreturn static void
 help(void)
 {
     (void) printf(_("%s - replay sudo session logs\n\n"), getprogname());
-    usage(0);
+    display_usage(stdout);
     (void) puts(_("\nOptions:\n"
 	"  -d, --directory=dir    specify directory for session logs\n"
 	"  -f, --filter=filter    specify which I/O type(s) to display\n"

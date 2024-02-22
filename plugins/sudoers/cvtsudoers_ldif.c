@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2018-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2018-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,11 +32,11 @@
 #include <unistd.h>
 #include <stdarg.h>
 
-#include "sudoers.h"
-#include "sudo_ldap.h"
-#include "redblack.h"
-#include "cvtsudoers.h"
-#include "sudo_lbuf.h"
+#include <sudoers.h>
+#include <sudo_ldap.h>
+#include <redblack.h>
+#include <cvtsudoers.h>
+#include <sudo_lbuf.h>
 #include <gram.h>
 
 struct seen_user {
@@ -67,7 +67,8 @@ seen_user_free(void *v)
 static bool
 safe_string(const char *str)
 {
-    unsigned int ch = *str++;
+    const unsigned char *ustr = (const unsigned char *)str;
+    unsigned char ch = *ustr++;
     debug_decl(safe_string, SUDOERS_DEBUG_UTIL);
 
     /* Initial char must be <= 127 and not LF, CR, SPACE, ':', '<' */
@@ -86,7 +87,7 @@ safe_string(const char *str)
     }
 
     /* Any value <= 127 decimal except NUL, LF, and CR is safe */
-    while ((ch = *str++) != '\0') {
+    while ((ch = *ustr++) != '\0') {
 	if (ch > 127 || ch == '\n' || ch == '\r')
 	    debug_return_bool(false);
     }
@@ -126,7 +127,7 @@ print_attribute_ldif(FILE *fp, const char *name, const char *value)
  * Print sudoOptions from a defaults_list.
  */
 static bool
-print_options_ldif(FILE *fp, struct defaults_list *options)
+print_options_ldif(FILE *fp, const struct defaults_list *options)
 {
     struct defaults *opt;
     char *attr_val;
@@ -161,8 +162,8 @@ print_options_ldif(FILE *fp, struct defaults_list *options)
  * Print global Defaults in a single sudoRole object.
  */
 static bool
-print_global_defaults_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
-    const char *base)
+print_global_defaults_ldif(FILE *fp,
+    const struct sudoers_parse_tree *parse_tree, const char *base)
 {
     unsigned int count = 0;
     struct sudo_lbuf lbuf;
@@ -219,7 +220,7 @@ format_cmnd(struct sudo_command *c, bool negated)
     int len;
     debug_decl(format_cmnd, SUDOERS_DEBUG_UTIL);
 
-    cmnd = c->cmnd ? c->cmnd : "ALL";
+    cmnd = c->cmnd ? c->cmnd : (char *)"ALL";
     bufsiz = negated + strlen(cmnd) + 1;
     if (c->args != NULL)
 	bufsiz += 1 + strlen(c->args);
@@ -237,7 +238,7 @@ format_cmnd(struct sudo_command *c, bool negated)
 
     cp = buf;
     TAILQ_FOREACH(digest, &c->digests, entries) {
-	len = snprintf(cp, bufsiz - (cp - buf), "%s:%s%s ", 
+	len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s:%s%s ", 
 	    digest_type_to_name(digest->digest_type), digest->digest_str,
 	    TAILQ_NEXT(digest, entries) ? "," : "");
 	if (len < 0 || len >= (int)bufsiz - (cp - buf))
@@ -245,8 +246,8 @@ format_cmnd(struct sudo_command *c, bool negated)
 	cp += len;
     }
 
-    len = snprintf(cp, bufsiz - (cp - buf), "%s%s%s%s", negated ? "!" : "",
-	cmnd, c->args ? " " : "", c->args ? c->args : "");
+    len = snprintf(cp, bufsiz - (size_t)(cp - buf), "%s%s%s%s",
+	negated ? "!" : "", cmnd, c->args ? " " : "", c->args ? c->args : "");
     if (len < 0 || len >= (int)bufsiz - (cp - buf))
 	sudo_fatalx(U_("internal error, %s overflow"), __func__);
 
@@ -258,8 +259,9 @@ format_cmnd(struct sudo_command *c, bool negated)
  * See print_member_int() in parse.c.
  */
 static void
-print_member_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
-    int type, bool negated, int alias_type, const char *attr_name)
+print_member_ldif(FILE *fp, const struct sudoers_parse_tree *parse_tree,
+    char *name, int type, bool negated, short alias_type,
+    const char *attr_name)
 {
     struct alias *a;
     struct member *m;
@@ -313,7 +315,7 @@ print_member_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree, char *name,
  * merge adjacent entries that are identical in all but the command.
  */
 static void
-print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_cmndspec_ldif(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct cmndspec *cs, struct cmndspec **nextp, struct defaults_list *options)
 {
     char timebuf[sizeof("20120727121554Z")];
@@ -322,7 +324,7 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     struct tm gmt;
     char *attr_val;
     bool last_one;
-    int len;
+    size_t len;
     debug_decl(print_cmndspec_ldif, SUDOERS_DEBUG_UTIL);
 
     /* Print runasuserlist as sudoRunAsUser attributes */
@@ -460,6 +462,18 @@ print_cmndspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
     }
 #endif /* HAVE_SELINUX */
 
+#ifdef HAVE_APPARMOR
+    /* Print AppArmor profile */
+    if (cs->apparmor_profile != NULL) {
+	if (asprintf(&attr_val, "apparmor_profile=%s", cs->apparmor_profile) == -1) {
+	    sudo_fatalx(U_("%s: %s"), __func__,
+		U_("unable to allocate memory"));
+	}
+	print_attribute_ldif(fp, "sudoOption", attr_val);
+	free(attr_val);
+    }
+#endif /* HAVE_APPARMOR */
+
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
@@ -595,7 +609,7 @@ bad:
  * Print a single User_Spec.
  */
 static bool
-print_userspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspec_ldif(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct userspec *us, struct cvtsudoers_config *conf)
 {
     struct privilege *priv;
@@ -644,7 +658,7 @@ print_userspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
 	    print_cmndspec_ldif(fp, parse_tree, cs, &next, &priv->defaults);
 
 	    if (conf->sudo_order != 0) {
-		char numbuf[(((sizeof(conf->sudo_order) * 8) + 2) / 3) + 2];
+		char numbuf[STRLEN_MAX_UNSIGNED(conf->sudo_order) + 1];
 		if (conf->order_max != 0 && conf->sudo_order > conf->order_max) {
 		    sudo_fatalx(U_("too many sudoers entries, maximum %u"),
 			conf->order_padding);
@@ -664,7 +678,7 @@ print_userspec_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Print User_Specs.
  */
 static bool
-print_userspecs_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
+print_userspecs_ldif(FILE *fp, const struct sudoers_parse_tree *parse_tree,
     struct cvtsudoers_config *conf)
 {
     struct userspec *us;
@@ -681,7 +695,7 @@ print_userspecs_ldif(FILE *fp, struct sudoers_parse_tree *parse_tree,
  * Export the parsed sudoers file in LDIF format.
  */
 bool
-convert_sudoers_ldif(struct sudoers_parse_tree *parse_tree,
+convert_sudoers_ldif(const struct sudoers_parse_tree *parse_tree,
     const char *output_file, struct cvtsudoers_config *conf)
 {
     bool ret = true;

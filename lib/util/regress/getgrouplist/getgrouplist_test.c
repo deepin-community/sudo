@@ -24,14 +24,15 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <pwd.h>
 #include <grp.h>
+#include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_fatal.h>
+#include <sudo_util.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -109,6 +110,8 @@ main(int argc, char *argv[])
 	printf("%s: %d tests run, %d errors, %d%% success rate\n",
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
     }
+    free(username);
+    free(groups);
 #endif /* HAVE_GETGROUPLIST_2 */
     return errors;
 }

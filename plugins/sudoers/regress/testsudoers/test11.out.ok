@@ -3,19 +3,23 @@ Testing @include with garbage after the path name
 sudoers:1:24: syntax error
 @include sudoers.local womp womp
                        ^~~~
-testsudoers: unable to stat sudoers.local: No such file or directory
+testsudoers: unable to open sudoers.local: No such file or directory
 
 Entries for user root:
 
-Command unmatched
+Password required
+
+Parse error
 
 Testing #include with garbage after the path name
 
 sudoers:1:24: syntax error
 #include sudoers.local womp womp
                        ^~~~
-testsudoers: unable to stat sudoers.local: No such file or directory
+testsudoers: unable to open sudoers.local: No such file or directory
 
 Entries for user root:
 
-Command unmatched
+Password required
+
+Parse error

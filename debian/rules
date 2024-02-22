@@ -4,6 +4,10 @@
 
 export DEB_BUILD_MAINT_OPTIONS = hardening=+all
 export DEB_CFLAGS_MAINT_APPEND  = -Wall -pedantic
+# the following line can go away after the bookworm release
+# iff no backports to bullseye and/or buster are planned.
+# See #1025683 for a comprehension question. If this is cleared,
+# the export can be commented out (but stay around as reminder for backports)
 export DEB_LDFLAGS_MAINT_APPEND = -Wl,--as-needed
 DPKG_EXPORT_BUILDFLAGS = 1
 
@@ -15,6 +19,7 @@ define CONFIGURE_ARGS
 	--with-fqdn
 	--with-logging=syslog
 	--with-logfac=authpriv
+	--with-devel
 	--with-env-editor
 	--with-editor=/usr/bin/editor
 	--with-timeout=15
@@ -31,12 +36,14 @@ define CONFIGURE_ARGS
 endef
 
 ifeq ($(DEB_HOST_ARCH_OS),linux)
-CONFIGURE_ARGS += --with-selinux --with-linux-audit --enable-tmpfiles.d=/usr/lib/tmpfiles.d
+CONFIGURE_ARGS += --with-apparmor --with-selinux --with-linux-audit --enable-tmpfiles.d=/usr/lib/tmpfiles.d
 endif
 
 # Consistently use /bin/mv to ensure reproducible builds regardless of
 # building on a usrmerge or non-usrmerge system.
 CONFIGURE_ARGS += MVPROG=/bin/mv
+
+deb_systemdsystemunitdir = $(shell pkg-config --variable=systemdsystemunitdir systemd)
 
 %:
 		dh $@
@@ -60,8 +67,8 @@ ifeq (,$(filter nocheck,$(DEB_BUILD_OPTIONS)))
 endif
 
 override_dh_auto_install:
-	dh_auto_install --builddirectory build-simple --destdir debian/sudo
-	dh_auto_install --builddirectory build-ldap --destdir debian/sudo-ldap
+	dh_auto_install --builddirectory build-simple --destdir debian/sudo -- INSTALL_OWNER=
+	dh_auto_install --builddirectory build-ldap --destdir debian/sudo-ldap -- INSTALL_OWNER=
 
 	rm -f debian/sudo*/etc/sudoers \
 	      debian/sudo*/usr/share/doc/sudo*/LICENSE.md \
@@ -71,8 +78,8 @@ override_dh_auto_install:
 	for pkg in sudo sudo-ldap; do \
 		mv debian/$$pkg/etc/sudoers.dist \
 		   debian/$$pkg/usr/share/doc/$$pkg/examples/sudoers.dist; \
-		mkdir -p debian/$$pkg/lib/systemd/system; \
-		ln -s /dev/null debian/$$pkg/lib/systemd/system/sudo.service; \
+		mkdir -p debian/$$pkg$(deb_systemdsystemunitdir)/; \
+		ln -s /dev/null debian/$$pkg$(deb_systemdsystemunitdir)/sudo.service; \
 	done
 
 execute_after_dh_fixperms:

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2013-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2013-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -30,9 +30,9 @@
 #include <stdarg.h>
 #include <ctype.h>
 
-#include "sudoers.h"
-#include "sudo_json.h"
-#include "cvtsudoers.h"
+#include <sudoers.h>
+#include <sudo_json.h>
+#include <cvtsudoers.h>
 #include <gram.h>
 
 /*
@@ -42,7 +42,7 @@ struct json_alias_closure {
     struct json_container *jsonc;
     const char *title;
     unsigned int count;
-    int alias_type;
+    short alias_type;
 };
 
 /*
@@ -77,7 +77,7 @@ print_command_json(struct json_container *jsonc, const char *name, bool negated)
 	}
     }
     value.type = JSON_STRING;
-    value.u.string = cmnd ? cmnd : "ALL";
+    value.u.string = cmnd ? cmnd : (char *)"ALL";
 
     if (!negated && TAILQ_EMPTY(&c->digests)) {
 	/* Print as { "command": "command and args" } */
@@ -115,7 +115,7 @@ print_command_json(struct json_container *jsonc, const char *name, bool negated)
  * Map an alias type to enum word_type.
  */
 static enum word_type
-alias_to_word_type(int alias_type)
+alias_to_word_type(short alias_type)
 {
     switch (alias_type) {
     case CMNDALIAS:
@@ -156,13 +156,13 @@ defaults_to_word_type(int defaults_type)
  */
 static void
 print_member_json_int(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, char *name, int type, bool negated,
-    enum word_type word_type, bool expand_aliases)
+    const struct sudoers_parse_tree *parse_tree, char *name, int type,
+    bool negated, enum word_type word_type, bool expand_aliases)
 {
     struct json_value value;
     const char *typestr = NULL;
     const char *errstr;
-    int alias_type = UNSPEC;
+    short alias_type = UNSPEC;
     id_t id;
     debug_decl(print_member_json_int, SUDOERS_DEBUG_UTIL);
 
@@ -330,7 +330,7 @@ print_member_json_int(struct json_container *jsonc,
 
 static void
 print_member_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, struct member *m,
+    const struct sudoers_parse_tree *parse_tree, struct member *m,
     enum word_type word_type, bool expand_aliases)
 {
     print_member_json_int(jsonc, parse_tree, m->name, m->type, m->negated,
@@ -342,7 +342,8 @@ print_member_json(struct json_container *jsonc,
  * the type specified in the closure.
  */
 static int
-print_alias_json(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
+print_alias_json(struct sudoers_parse_tree *parse_tree, struct alias *a,
+    void *v)
 {
     struct json_alias_closure *closure = v;
     struct member *m;
@@ -371,8 +372,8 @@ print_alias_json(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v
  */
 static void
 print_binding_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, struct defaults_binding *binding,
-    int type, bool expand_aliases)
+    const struct sudoers_parse_tree *parse_tree,
+    struct defaults_binding *binding, int type, bool expand_aliases)
 {
     struct member *m;
     debug_decl(print_binding_json, SUDOERS_DEBUG_UTIL);
@@ -462,7 +463,7 @@ get_defaults_type(struct defaults *def)
  */
 static void
 print_defaults_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, bool expand_aliases)
+    const struct sudoers_parse_tree *parse_tree, bool expand_aliases)
 {
     struct json_value value;
     struct defaults *def, *next;
@@ -534,16 +535,19 @@ print_defaults_json(struct json_container *jsonc,
  */
 static void
 print_aliases_by_type_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, int alias_type, const char *title)
+    const struct sudoers_parse_tree *parse_tree, short alias_type,
+    const char *title)
 {
     struct json_alias_closure closure;
     debug_decl(print_aliases_by_type_json, SUDOERS_DEBUG_UTIL);
 
+    /* print_alias_json() does not modify parse_tree. */
     closure.jsonc = jsonc;
     closure.count = 0;
     closure.alias_type = alias_type;
     closure.title = title;
-    alias_apply(parse_tree, print_alias_json, &closure);
+    alias_apply((struct sudoers_parse_tree *)parse_tree, print_alias_json,
+	&closure);
     if (closure.count != 0) {
 	sudo_json_close_array(jsonc);
 	sudo_json_close_object(jsonc);
@@ -557,7 +561,7 @@ print_aliases_by_type_json(struct json_container *jsonc,
  */
 static void
 print_aliases_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree)
+    const struct sudoers_parse_tree *parse_tree)
 {
     debug_decl(print_aliases_json, SUDOERS_DEBUG_UTIL);
 
@@ -581,6 +585,9 @@ cmndspec_continues(struct cmndspec *cs, struct cmndspec *next)
 #ifdef HAVE_SELINUX
 	&& cs->role == next->role && cs->type == next->type
 #endif /* HAVE_SELINUX */
+#ifdef HAVE_APPARMOR
+	&& cs->apparmor_profile == next->apparmor_profile
+#endif /* HAVE_APPARMOR */
 	&& cs->runchroot == next->runchroot && cs->runcwd == next->runcwd;
     return ret;
 }
@@ -592,7 +599,7 @@ cmndspec_continues(struct cmndspec *cs, struct cmndspec *next)
  */
 static void
 print_cmndspec_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, struct cmndspec *cs,
+    const struct sudoers_parse_tree *parse_tree, struct cmndspec *cs,
     struct cmndspec **nextp, struct defaults_list *options, bool expand_aliases)
 {
     char timebuf[sizeof("20120727121554Z")];
@@ -601,7 +608,7 @@ print_cmndspec_json(struct json_container *jsonc,
     struct defaults *def;
     struct member *m;
     struct tm gmt;
-    int len;
+    size_t len;
     debug_decl(print_cmndspec_json, SUDOERS_DEBUG_UTIL);
 
     /* Open Cmnd_Spec object. */
@@ -755,6 +762,16 @@ print_cmndspec_json(struct json_container *jsonc,
     }
 #endif /* HAVE_SELINUX */
 
+#ifdef HAVE_APPARMOR
+    if (cs->apparmor_profile != NULL) {
+	sudo_json_open_array(jsonc, "AppArmor_Spec");
+	value.type = JSON_STRING;
+	value.u.string = cs->apparmor_profile;
+	sudo_json_add_value(jsonc, "apparmor_profile", &value);
+	sudo_json_close_array(jsonc);
+    }
+#endif /* HAVE_APPARMOR */
+
 #ifdef HAVE_PRIV_SET
     /* Print Solaris privs/limitprivs */
     if (cs->privs != NULL || cs->limitprivs != NULL) {
@@ -801,7 +818,7 @@ print_cmndspec_json(struct json_container *jsonc,
  */
 static void
 print_userspec_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, struct userspec *us,
+    const struct sudoers_parse_tree *parse_tree, struct userspec *us,
     bool expand_aliases)
 {
     struct privilege *priv;
@@ -851,7 +868,7 @@ print_userspec_json(struct json_container *jsonc,
 
 static void
 print_userspecs_json(struct json_container *jsonc,
-    struct sudoers_parse_tree *parse_tree, bool expand_aliases)
+    const struct sudoers_parse_tree *parse_tree, bool expand_aliases)
 {
     struct userspec *us;
     debug_decl(print_userspecs_json, SUDOERS_DEBUG_UTIL);
@@ -872,7 +889,7 @@ print_userspecs_json(struct json_container *jsonc,
  * Export the parsed sudoers file in JSON format.
  */
 bool
-convert_sudoers_json(struct sudoers_parse_tree *parse_tree,
+convert_sudoers_json(const struct sudoers_parse_tree *parse_tree,
     const char *output_file, struct cvtsudoers_config *conf)
 {
     struct json_container jsonc;
@@ -886,7 +903,7 @@ convert_sudoers_json(struct sudoers_parse_tree *parse_tree,
     }
 
     /* 4 space indent, non-compact, exit on memory allocation failure. */
-    sudo_json_init(&jsonc, 4, false, true);
+    sudo_json_init(&jsonc, 4, false, true, false);
 
     /* Dump Defaults in JSON format. */
     if (!ISSET(conf->suppress, SUPPRESS_DEFAULTS)) {

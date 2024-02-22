@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 2010-2022 Todd C. Miller <Todd.Miller@sudo.ws>
+.\" Copyright (c) 2010-2023 Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
 .\" purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,7 @@
 .\" OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 .\"
 .nr SL @SEMAN@
-.Dd February 16, 2022
+.Dd November 6, 2023
 .Dt SUDO.CONF @mansectform@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -34,7 +34,7 @@ debug flags, and other settings.
 The
 .Nm
 file supports the following directives, described in detail below.
-.Bl -tag -width 8n
+.Bl -tag -width "Plugin"
 .It Plugin
 an approval, audit, I/O logging, or security policy plugin
 .It Path
@@ -67,17 +67,17 @@ Leading white space is removed from the beginning of lines
 even when a continuation character is used.
 .Pp
 Non-comment lines that don't begin with
-.Li Plugin ,
-.Li Path ,
-.Li Debug ,
+.Em Plugin ,
+.Em Path ,
+.Em Debug ,
 or
-.Li Set
+.Em Set
 are silently ignored.
 .Pp
 The
 .Nm
 file is always parsed in the
-.Dq Li C
+.Ql C
 locale.
 .Ss Plugin configuration
 .Nm sudo
@@ -91,9 +91,9 @@ Plugins are dynamically loaded based on the contents of
 .Nm .
 .Pp
 A
-.Li Plugin
+.Em Plugin
 line consists of the
-.Li Plugin
+.Em Plugin
 keyword, followed by the
 .Em symbol_name
 and the
@@ -102,14 +102,14 @@ to the dynamic shared object that contains the plugin.
 The
 .Em symbol_name
 is the name of the
-.Li approval_plugin ,
-.Li audit_plugin ,
-.Li io_plugin ,
+.Vt struct approval_plugin ,
+.Vt struct audit_plugin ,
+.Vt struct io_plugin ,
 or
-.Li policy_plugin
-struct contained in the plugin.
+.Vt struct policy_plugin
+defined by the plugin.
 If a plugin implements multiple plugin types, there must be a
-.Li Plugin
+.Em Plugin
 line for each unique symbol name.
 The
 .Em path
@@ -117,17 +117,17 @@ may be fully qualified or relative.
 If not fully qualified, it is relative to the directory
 specified by the
 .Em plugin_dir
-.Li Path
+.Em Path
 setting, which defaults to
 .Pa @plugindir@ .
 In other words:
 .Bd -literal -offset 4n
-Plugin sudoers_policy sudoers.so
+Plugin sudoers_policy @sudoers_plugin@
 .Ed
 .Pp
 is equivalent to:
 .Bd -literal -offset 4n
-Plugin sudoers_policy @plugindir@/sudoers.so
+Plugin sudoers_policy @plugindir@/@sudoers_plugin@
 .Ed
 .Pp
 If the plugin was compiled statically into the
@@ -138,8 +138,15 @@ should be specified without a leading directory,
 as it does not actually exist in the file system.
 For example:
 .Bd -literal -offset 4n
-Plugin sudoers_policy sudoers.so
+Plugin sudoers_policy @sudoers_plugin@
 .Ed
+.Pp
+On AIX systems, the plugin may be either a shared object
+ending in
+.Ql .so
+or an archive file containing a shared object ending in
+.Ql .a
+with the name of the shared object in parentheses at the end.
 .Pp
 Starting with
 .Nm sudo
@@ -150,7 +157,7 @@ are passed as arguments to the plugin's
 function.
 For example, to override the compile-time default sudoers file mode:
 .Bd -literal -offset 4n
-Plugin sudoers_policy sudoers.so sudoers_mode=0440
+Plugin sudoers_policy @sudoers_plugin@ sudoers_mode=0440
 .Ed
 .Pp
 See the
@@ -167,16 +174,16 @@ This limitation does not apply to I/O plugins.
 If no
 .Nm
 file is present, or if it contains no
-.Li Plugin
+.Em Plugin
 lines, the
 .Nm sudoers
 plugin will be used as the default security policy, for I/O logging
 (if enabled by the policy), and for auditing.
 This is equivalent to the following:
 .Bd -literal -offset 4n
-Plugin sudoers_policy sudoers.so
-Plugin sudoers_io sudoers.so
-Plugin sudoers_audit sudoers.so
+Plugin sudoers_policy @sudoers_plugin@
+Plugin sudoers_io @sudoers_plugin@
+Plugin sudoers_audit @sudoers_plugin@
 .Ed
 .Pp
 Starting with
@@ -192,7 +199,7 @@ versions, if
 .Nm sudoers
 is configured as the security policy, it will be used as an audit
 plugin as well.
-This guarantees that the logging behavior will be consistnet with that of
+This guarantees that the logging behavior will be consistent with that of
 .Nm sudo
 versions 1.9.0 and below.
 .Pp
@@ -203,9 +210,9 @@ plugin architecture, see the
 manual.
 .Ss Path settings
 A
-.Li Path
+.Em Path
 line consists of the
-.Li Path
+.Em Path
 keyword, followed by the name of the path to set and its value.
 For example:
 .Bd -literal -offset 4n
@@ -217,7 +224,7 @@ Path askpass /usr/X11R6/bin/ssh-askpass
 If no path name is specified, features relying on the specified
 setting will be disabled.
 Disabling
-.Li Path
+.Em Path
 settings is only supported in
 .Nm sudo
 version 1.8.16 and higher.
@@ -225,7 +232,7 @@ version 1.8.16 and higher.
 The following plugin-agnostic paths may be set in the
 .Pa @sysconfdir@/sudo.conf
 file:
-.Bl -tag -width 8n
+.Bl -tag -width 4n
 .It askpass
 The fully qualified path to a helper program used to read the user's
 password when no terminal is available.
@@ -254,7 +261,7 @@ If terminal devices may be located in a sub-directory of
 that path must be explicitly listed in
 .Em devsearch .
 The default value is
-.Li /dev/pts:/dev/vt:/dev/term:/dev/zcons:/dev/pty:/dev
+.Pa /dev/pts:/dev/vt:/dev/term:/dev/zcons:/dev/pty:/dev
 .Pp
 This option is ignored on systems that support either the
 .Fn devname
@@ -264,50 +271,78 @@ functions, for example
 .Bx ,
 macOS and Solaris.
 .It intercept
-The fully-qualified path to a shared library containing a wrappers for the
-.Fn execl ,
-.Fn execle ,
-.Fn execlp ,
-.Fn execv ,
-.Fn execve ,
-.Fn execvp ,
+The path to a shared library containing a wrappers for the
+.Xr execve 2 ,
+.Xr execl 3 ,
+.Xr execle 3 ,
+.Xr execlp 3 ,
+.Xr execv 3 ,
+.Xr execvp 3 ,
+.Xr execvpe 3 ,
 and
-.Fn execvpe
+.Xr system 3
 library functions that intercepts attempts to run further commands and
 performs a policy check before allowing them to be executed.
 This is used to implement the
 .Em intercept
+and
+.Em log_subcmds
 functionality on systems that support
 .Ev LD_PRELOAD
-or its equivalent.
+or the equivalent.
+.Pp
+The
+.Em intercept
+path may be set to either a single fully-qualified path, or, for systems
+that support separate
+.Dv LD_PRELOAD
+environment variables for 32-bit and 64-bit executables, it may optionally
+be set to two fully-qualified paths separated by a colon
+.Pq Ql :\& .
+The first path should be the 32-bit version and the second the
+64-bit version.
+This two-path form is currently only supported on AIX and Solaris
+systems.
 The default value is
 .Pa @intercept_file@ .
 .It noexec
-The fully-qualified path to a shared library containing wrappers
-for the
-.Fn execl ,
-.Fn execle ,
-.Fn execlp ,
-.Fn exect ,
-.Fn execv ,
-.Fn execve ,
-.Fn execveat ,
-.Fn execvP ,
-.Fn execvp ,
-.Fn execvpe ,
-.Fn fexecve ,
-.Fn popen ,
-.Fn posix_spawn ,
-.Fn posix_spawnp ,
-.Fn system ,
+The path to a shared library containing wrappers for the
+.Xr execve 2 ,
+.Xr execl 3 ,
+.Xr execle 3 ,
+.Xr execlp 3 ,
+.Xr exect 3 ,
+.Xr execv 3 ,
+.Xr execveat 3 ,
+.Xr execvP 3 ,
+.Xr execvp 3 ,
+.Xr execvpe 3 ,
+.Xr fexecve 3 ,
+.Xr popen 3 ,
+.Xr posix_spawn 3 ,
+.Xr posix_spawnp 3 ,
+.Xr system 3 ,
 and
-.Fn wordexp
+.Xr wordexp 3
 library functions that prevent the execution of further commands.
 This is used to implement the
 .Em noexec
 functionality on systems that support
 .Ev LD_PRELOAD
-or its equivalent.
+or the equivalent.
+.Pp
+The
+.Em noexec
+path may be set to either a single fully-qualified path, or, for systems
+that support separate
+.Dv LD_PRELOAD
+environment variables for 32-bit and 64-bit executables, it may optionally
+be set to two fully-qualified paths separated by a colon
+.Pq Ql :\& .
+The first path should be the 32-bit version and the second the
+64-bit version.
+This two-path form is currently only supported on AIX and Solaris
+systems.
 The default value is
 .Pa @noexec_file@ .
 .It plugin_dir
@@ -331,7 +366,7 @@ The default value is
 The
 .Nm
 file also supports the following front-end settings:
-.Bl -tag -width 8n
+.Bl -tag -width 4n
 .It disable_coredump
 Core dumps of
 .Nm sudo
@@ -367,34 +402,6 @@ command is used to configure core dump behavior.
 This setting is only available in
 .Nm sudo
 version 1.8.4 and higher.
-.It developer_mode
-By default
-.Nm sudo
-refuses to load plugins which can be modified by other than the root user.
-The plugin should be owned by root and write access permissions should be
-disabled for
-.Dq group
-and
-.Sm off
-.Dq other
-\&.
-.Sm on
-To make development of a plugin easier, you can disable that by setting
-.Dq developer_mode
-option to true in
-.Nm sudo.conf
-as follows:
-.Bd -literal -offset 4n
-Set developer_mode true
-.Ed
-.Pp
-This creates a security risk and is not recommended for production systems,
-it is intended to be used in a development environment (VM, container, etc).
-Before enabling developer mode, be sure that you understand the implications.
-.Pp
-This setting is only available in
-.Nm sudo
-version 1.9.0 and higher.
 .It group_source
 .Nm sudo
 passes the invoking user's group list to the policy and I/O plugins.
@@ -425,7 +432,7 @@ setting allows the administrator to change this default behavior.
 Supported values for
 .Em group_source
 are:
-.Bl -tag -width 8n
+.Bl -tag -width 4n
 .It static
 Use the static group list that the kernel returns.
 Retrieving the group list this way is very fast but it is subject
@@ -452,7 +459,7 @@ Currently,
 .Nm sudo
 supports efficient group queries on AIX,
 .Bx ,
-HP-UX, Linux, macOS, and Solaris.
+Linux, macOS, and Solaris.
 This is the default behavior on macOS in
 .Nm sudo
 1.9.6 and higher.
@@ -518,9 +525,9 @@ that can log what
 is doing internally if there is a problem.
 .Pp
 A
-.Li Debug
+.Em Debug
 line consists of the
-.Li Debug
+.Em Debug
 keyword, followed by the name of the program, plugin, or shared object
 to debug, the debug file name, and a comma-separated list of debug flags.
 The debug flag syntax used by
@@ -532,6 +539,17 @@ plugin along with its associated programs and shared objects is
 but a third-party plugin is free to use a different format so long
 as it does not include a comma
 .Pq Ql \&, .
+.Pp
+On AIX systems, a
+.Em Debug
+line will match a plugin specified as either the name of an
+SVR4-style shared object file ending in
+.Ql .so ,
+an archive file ending in
+.Ql .a ,
+or an archive file ending in
+.Ql .a
+with the name of the shared object in parentheses.
 .Pp
 Examples:
 .Bd -literal -offset 4n
@@ -549,32 +567,44 @@ Debug sudo_intercept.so @log_dir@/intercept_debug all@debug
 .Pp
 would log all debugging statements, regardless of level, for the
 .Pa sudo_intercept.so
-shared object that implements
+shared library that implements
 .Nm sudo Ns 's
-intercept functionality.
+intercept functionality on some systems.
+.Bd -literal -offset 4n
+Debug @sudoers_plugin@ @log_dir@/sudoers_debug all@debug
+.Ed
+.Pp
+would log all debugging statements, regardless of level, for the
+.Nm sudoers
+plugin.
+See
+.Xr sudoers @mansectform@
+for the full list of subsystems supported by the
+.Nm sudoers
+plugin.
 .Pp
 As of
 .Nm sudo
 1.8.12, multiple
-.Li Debug
+.Em Debug
 entries may be specified per program.
 Older versions of
 .Nm sudo
 only support a single
-.Li Debug
+.Em Debug
 entry per program.
 Plugin-specific
-.Li Debug
+.Em Debug
 entries are also supported starting with
 .Nm sudo
 1.8.12 and are matched by either the base name of the plugin that was loaded
 (for example
-.Li sudoers.so )
+.Pa @sudoers_plugin@ )
 or by the plugin's fully-qualified path name.
 Previously, the
 .Nm sudoers
 plugin shared the same
-.Li Debug
+.Em Debug
 entry as the
 .Nm sudo
 front-end and could not be configured separately.
@@ -673,9 +703,9 @@ front-end configuration
 # The plugin_options are optional.
 #
 # The sudoers plugin is used by default if no Plugin lines are present.
-#Plugin sudoers_policy sudoers.so
-#Plugin sudoers_io sudoers.so
-#Plugin sudoers_audit sudoers.so
+#Plugin sudoers_policy @sudoers_plugin@
+#Plugin sudoers_io @sudoers_plugin@
+#Plugin sudoers_audit @sudoers_plugin@
 
 #
 # Sudo askpass:
@@ -713,7 +743,7 @@ front-end configuration
 # The compiled-in value is usually sufficient and should only be changed
 # if you rename or move the sudo_intercept.so file.
 #
-#Path intercept @plugindir@/sudo_intercept.so
+#Path intercept @intercept_file@
 
 #
 # Sudo noexec:
@@ -727,7 +757,7 @@ front-end configuration
 # The compiled-in value is usually sufficient and should only be changed
 # if you rename or move the sudo_noexec.so file.
 #
-#Path noexec @plugindir@/sudo_noexec.so
+#Path noexec @noexec_file@
 
 #
 # Sudo plugin directory:
@@ -737,14 +767,6 @@ front-end configuration
 # specified without a fully qualified path name.
 #
 #Path plugin_dir @plugindir@
-
-#
-# Sudo developer mode:
-#   Set developer_mode true|false
-#
-# Allow loading of plugins that are owned by non-root or are writable
-# by "group" or "other".  Should only be used during plugin development.
-#Set developer_mode true
 
 #
 # Core dumps:
@@ -798,7 +820,7 @@ front-end configuration
 # Multiple subsystem@priority may be specified, separated by a comma.
 #
 #Debug sudo @log_dir@/sudo_debug all@debug
-#Debug sudoers.so @log_dir@/sudoers_debug all@debug
+#Debug @sudoers_plugin@ @log_dir@/sudoers_debug all@debug
 .Ed
 .Sh SEE ALSO
 .Xr sudo_plugin @mansectform@ ,

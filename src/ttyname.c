@@ -46,7 +46,7 @@
 #include <dirent.h>
 #if defined(HAVE_KINFO_PROC2_NETBSD) || defined (HAVE_KINFO_PROC_OPENBSD) || defined(HAVE_KINFO_PROC_44BSD)
 # include <sys/sysctl.h>
-#elif defined(HAVE_KINFO_PROC_FREEBSD)
+#elif defined(HAVE_KINFO_PROC_FREEBSD) || defined(HAVE_KINFO_PROC_DFLY)
 # include <sys/param.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
@@ -60,7 +60,7 @@
 # include <sys/pstat.h>
 #endif
 
-#include "sudo.h"
+#include <sudo.h>
 
 /*
  * How to access the tty device number in struct kinfo_proc.
@@ -79,6 +79,11 @@
 # define SUDO_KERN_PROC		KERN_PROC
 # define sudo_kinfo_proc	kinfo_proc
 # define sudo_kp_tdev		ki_tdev
+# define sudo_kp_namelen	4
+#elif defined(HAVE_KINFO_PROC_DFLY)
+# define SUDO_KERN_PROC		KERN_PROC
+# define sudo_kinfo_proc	kinfo_proc
+# define sudo_kp_tdev		kp_tdev
 # define sudo_kp_namelen	4
 #elif defined(HAVE_KINFO_PROC_44BSD)
 # define SUDO_KERN_PROC		KERN_PROC
@@ -128,7 +133,7 @@ get_process_ttyname(char *name, size_t namelen)
     if (rc != -1) {
 	if ((dev_t)ki_proc->sudo_kp_tdev != (dev_t)-1) {
 	    errno = serrno;
-	    ret = sudo_ttyname_dev(ki_proc->sudo_kp_tdev, name, namelen);
+	    ret = sudo_ttyname_dev((dev_t)ki_proc->sudo_kp_tdev, name, namelen);
 	    if (ret == NULL) {
 		sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
 		    "unable to map device number %lu to name",
@@ -180,7 +185,7 @@ get_process_ttyname(char *name, size_t namelen)
 
 	/* Missing /proc/pid/psinfo file. */
 	for (i = STDIN_FILENO; i <= STDERR_FILENO; i++) {
-	    if (isatty(i) && fstat(i, &sb) != -1) {
+	    if (sudo_isatty(i, &sb)) {
 		ret = sudo_ttyname_dev(sb.st_rdev, name, namelen);
 		goto done;
 	    }
@@ -218,7 +223,7 @@ get_process_ttyname(char *name, size_t namelen)
      */
     if ((fd = open(path, O_RDONLY | O_NOFOLLOW)) != -1) {
 	cp = buf;
-	while ((nread = read(fd, cp, buf + sizeof(buf) - cp)) != 0) {
+	while ((nread = read(fd, cp, sizeof(buf) - (size_t)(cp - buf))) != 0) {
 	    if (nread == -1) {
 		if (errno == EAGAIN || errno == EINTR)
 		    continue;
@@ -228,7 +233,7 @@ get_process_ttyname(char *name, size_t namelen)
 	    if (cp >= buf + sizeof(buf))
 		break;
 	}
-	if (nread == 0 && memchr(buf, '\0', cp - buf) == NULL) {
+	if (nread == 0 && memchr(buf, '\0', (size_t)(cp - buf)) == NULL) {
 	    /*
 	     * Field 7 is the tty dev (0 if no tty).
 	     * Since the process name at field 2 "(comm)" may include
@@ -246,8 +251,8 @@ get_process_ttyname(char *name, size_t namelen)
 			*ep = '\0';
 			field++;
 			if (field == 7) {
-			    int tty_nr = sudo_strtonum(cp, INT_MIN, INT_MAX,
-				&errstr);
+			    int tty_nr = (int)sudo_strtonum(cp, INT_MIN,
+				INT_MAX, &errstr);
 			    if (errstr) {
 				sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 				    "%s: tty device %s: %s", path, cp, errstr);
@@ -267,7 +272,8 @@ get_process_ttyname(char *name, size_t namelen)
 			    break;
 			}
 			if (field == 3) {
-			    ppid = sudo_strtonum(cp, INT_MIN, INT_MAX, NULL);
+			    ppid =
+				(int)sudo_strtonum(cp, INT_MIN, INT_MAX, NULL);
 			}
 			cp = ep + 1;
 		    }
@@ -281,7 +287,7 @@ get_process_ttyname(char *name, size_t namelen)
 
 	/* No parent pid found, /proc/self/stat is missing or corrupt. */
 	for (i = STDIN_FILENO; i <= STDERR_FILENO; i++) {
-	    if (isatty(i) && fstat(i, &sb) != -1) {
+	    if (sudo_isatty(i, &sb)) {
 		ret = sudo_ttyname_dev(sb.st_rdev, name, namelen);
 		goto done;
 	    }
@@ -342,25 +348,31 @@ done:
 char *
 get_process_ttyname(char *name, size_t namelen)
 {
+    struct stat sb;
     char *tty;
+    int i;
     debug_decl(get_process_ttyname, SUDO_DEBUG_UTIL);
 
-    if ((tty = ttyname(STDIN_FILENO)) == NULL) {
-	if ((tty = ttyname(STDOUT_FILENO)) == NULL)
-	    tty = ttyname(STDERR_FILENO);
-    }
-    if (tty != NULL) {
-	if (strlcpy(name, tty, namelen) < namelen)
-	    debug_return_str(name);
-	errno = ERANGE;
-	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to store tty from ttyname");
-    } else {
-	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
-	    "unable to resolve tty via ttyname");
-	errno = ENOENT;
+    for (i = STDIN_FILENO; i <= STDERR_FILENO; i++) {
+	/* Only call ttyname() on a character special device. */
+	if (fstat(i, &sb) == -1 || !S_ISCHR(sb.st_mode))
+	    continue;
+	if ((tty = ttyname(i)) == NULL)
+	    continue;
+
+	if (strlcpy(name, tty, namelen) >= namelen) {
+	    errno = ENAMETOOLONG;
+	    sudo_debug_printf(
+		SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+		"unable to store tty from ttyname");
+	    debug_return_str(NULL);
+	}
+	debug_return_str(name);
     }
 
+    sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+	"unable to resolve tty via ttyname");
+    errno = ENOENT;
     debug_return_str(NULL);
 }
 #endif

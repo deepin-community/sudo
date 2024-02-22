@@ -19,7 +19,7 @@
 #ifndef SUDO_TLS_COMMON_H
 #define SUDO_TLS_COMMON_H
 
-#include "config.h"
+#include <config.h>
 
 #if defined(HAVE_OPENSSL)
 # if defined(HAVE_WOLFSSL)
@@ -27,6 +27,7 @@
 # endif
 # include <openssl/ssl.h>
 # include <openssl/err.h>
+# include <sudo_ssl_compat.h>
 
 struct tls_client_closure {
     SSL *ssl;

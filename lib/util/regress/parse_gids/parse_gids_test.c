@@ -21,10 +21,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_fatal.h>
+#include <sudo_util.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -68,7 +69,8 @@ int
 main(int argc, char *argv[])
 {
     GETGROUPS_T *gidlist = NULL;
-    int i, j, errors = 0, ntests = 0;
+    size_t i;
+    int j, errors = 0, ntests = 0;
     int ch, ngids;
 
     initprogname(argc > 0 ? argv[0] : "parse_gids_test");
@@ -88,6 +90,7 @@ main(int argc, char *argv[])
 
     for (i = 0; test_data[i].gids != NULL; i++) {
 	free(gidlist);
+	gidlist = NULL;
 	ngids = sudo_parse_gids(test_data[i].gids, test_data[i].baseptr, &gidlist);
 	if (ngids == -1)
 	    sudo_fatal_nodebug("sudo_parse_gids");
@@ -111,6 +114,8 @@ main(int argc, char *argv[])
 	    }
 	}
     }
+    free(gidlist);
+
     if (ntests != 0) {
 	printf("%s: %d tests run, %d errors, %d%% success rate\n",
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);

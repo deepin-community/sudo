@@ -1,14 +1,5 @@
 # not going to pester upstream about this
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/id.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/ls.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/mailq.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/make.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/pkg_add.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file lib/iolog/regress/corpus/seed/log_json/pkg_delete.json line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file plugins/sudoers/regress/corpus/seed/policy/policy.3 line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file configure line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file configure.ac line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file docs/Makefile.in line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file m4/libtool.m4 line * is * characters long (>512)
-sudo source: very-long-line-length-in-source-file scripts/mkdep.pl line * is 645 characters long (>512)
-
+sudo source: very-long-line-length-in-source-file * > 512 [plugins/sudoers/regress/corpus/seed/policy/policy.3:*]
+sudo source: very-long-line-length-in-source-file * > 512 [docs/Makefile.in:*]
+sudo source: very-long-line-length-in-source-file * > 512 [configure.ac:*]
+sudo source: very-long-line-length-in-source-file * > 512 [scripts/mkdep.pl:*]

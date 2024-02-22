@@ -30,16 +30,18 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_iolog.h"
-#include "sudo_plugin.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_eventlog.h>
+#include <sudo_fatal.h>
+#include <sudo_iolog.h>
+#include <sudo_plugin.h>
+#include <sudo_util.h>
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 static int
 fuzz_conversation(int num_msgs, const struct sudo_conv_message msgs[],
@@ -75,7 +77,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     char logdir[] = "/tmp/timing.XXXXXX";
     int dfd = -1, fd = -1;
 
-    setprogname("fuzz_iolog_timing");
+    initprogname("fuzz_iolog_timing");
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 

@@ -26,13 +26,15 @@
 # include <inttypes.h>
 #endif
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_iolog.h"
-#include "sudo_plugin.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_eventlog.h>
+#include <sudo_fatal.h>
+#include <sudo_iolog.h>
+#include <sudo_plugin.h>
+#include <sudo_util.h>
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 static FILE *
 open_data(const uint8_t *data, size_t size)
@@ -92,7 +94,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     struct eventlog *evlog = NULL;
     FILE *fp;
 
-    setprogname("fuzz_iolog_legacy");
+    initprogname("fuzz_iolog_legacy");
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 

@@ -12,18 +12,22 @@ writing a single line of code.
 
 ## Filing bug reports/issues
 
-If you find a bug in Sudo, you may open a [GitHub
-issue](https://github.com/sudo-project/sudo/issues) or file a
-[Bugzilla bug](https://bugzilla.sudo.ws).  If you would rather use
-email, messages may be sent to the [sudo-workers@sudo.ws
-mailing list](https://www.sudo.ws/mailman/listinfo/sudo-workers)
-(public) or to sudo@sudo.ws (private).
+If you believe you have found a bug, you can either file a bug
+report in the sudo bug database, https://bugzilla.sudo.ws/, or open
+a [GitHub issue](https://github.com/sudo-project/sudo/issues),
+whichever you find easier.  If you would prefer to use email,
+messages may be sent to the [sudo-workers@sudo.ws mailing
+list](https://www.sudo.ws/mailman/listinfo/sudo-workers) (public)
+or to sudo@sudo.ws (private).
 
-For information on reporting security issues, see [SECURITY.md](SECURITY.md).
+For sudo's security policy and how to report security issues, see
+[SECURITY.md](SECURITY.md).
 
-Include the version of sudo you are using, the operating system
-and/or distro that is affected, and, if possible, step-by-step
-instructions to reproduce the problem.
+Please check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) *before*
+submitting a bug report.  When reporting bugs, be sure to include
+the version of sudo you are using, the operating system and/or
+distro that is affected, and, if possible, step-by-step instructions
+to reproduce the problem.
 
 ## Making changes to Sudo
 
@@ -64,10 +68,19 @@ For more information, see https://www.sudo.ws/security/fuzzing/.
 
 ## Translations
 
-The Free Translation Project provides translations for Sudo.  If
-you would like to contribute to Sudo's translations, see the
-ABOUT-NLS file in the Sudo source tree or visit [the Free Translation
-Project's homepage](https://translationproject.org).
+Sudo uses [GNU gettext](https://www.gnu.org/software/gettext/) for
+its National Language Support (NLS).  Strings in sudo and related
+programs are collected in `.pot` files that can be translated into
+multiple languages.
+
+Translations for sudo are coordinated by the [Translation
+Project](https://translationproject.org).  If you would like to
+contribute to Sudo's translations, please join a translation team
+at the Translation Project instead of contributing a `.po` file
+directly.  This will avoid duplicated work if there is already a
+translation in progress.  If you would like to become a member of
+a translation team, please follow the [instructions for
+translators](https://translationproject.org/html/translators.html).
 
 There are currently two translation domains: [one for the sudo
 front-end](https://translationproject.org/domain/sudo.html) and a

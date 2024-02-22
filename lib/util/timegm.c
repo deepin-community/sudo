@@ -28,8 +28,8 @@
 #include <stdio.h>
 #include <time.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
 
 /*
  * Returns the offset from GMT in seconds (algorithm taken from sendmail).
@@ -88,6 +88,7 @@ sudo_timegm(struct tm *tm)
 {
     time_t result;
 
+    tm->tm_isdst = 0;
     result = mktime(tm);
     if (result != -1)
 	result += get_gmtoff(&result);
