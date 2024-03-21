@@ -39,7 +39,10 @@
 #endif
 
 #include "sudoers.h"
+#include "sudo_iolog.h"
 #include "interfaces.h"
+#include "check.h"
+#include "auth/sudo_auth.h"
 
 extern char **environ;
 extern sudo_dso_public struct policy_plugin sudoers_policy;
@@ -48,6 +51,8 @@ const char *path_plugin_dir = _PATH_SUDO_PLUGIN_DIR;
 char *audit_msg;
 
 static int pass;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 static FILE *
 open_data(const uint8_t *data, size_t size)
@@ -114,13 +119,13 @@ push(struct dynamic_array *arr, const char *entry)
     }
 
     if (arr->len + (entry != NULL) >= arr->size) {
-	char **tmp = reallocarray(arr->entries, arr->size + 128, sizeof(char *));
+	char **tmp = reallocarray(arr->entries, arr->size + 1024, sizeof(char *));
 	if (tmp == NULL) {
 	    free(copy);
 	    return false;
 	}
 	arr->entries = tmp;
-	arr->size += 128;
+	arr->size += 1024;
     }
     if (copy != NULL)
 	arr->entries[arr->len++] = copy;
@@ -161,7 +166,7 @@ fuzz_printf(int msg_type, const char *fmt, ...)
     return 0;
 }
 
-int
+static int
 fuzz_hook_stub(struct sudo_hook *hook)
 {
     return 0;
@@ -169,10 +174,14 @@ fuzz_hook_stub(struct sudo_hook *hook)
 
 /*
  * The fuzzing environment may not have DNS available, this may result
- * in long delays that cause a timeout when fuzzing.  This getaddrinfo()
- * can look up "localhost" and returns an error for anything else.
+ * in long delays that cause a timeout when fuzzing.
+ * This getaddrinfo() resolves every name as "localhost" (127.0.0.1).
  */
 #ifdef FUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION
+/* Avoid compilation errors if getaddrinfo() or freeaddrinfo() are macros. */
+# undef getaddrinfo
+# undef freeaddrinfo
+
 int
 # ifdef HAVE_GETADDRINFO
 getaddrinfo(
@@ -184,12 +193,30 @@ sudo_getaddrinfo(
 {
     struct addrinfo *ai;
     struct in_addr addr;
+    unsigned short port = 0;
 
     /* Stub getaddrinfo(3) to avoid a DNS timeout in CIfuzz. */
-    if (strcmp(nodename, "localhost") != 0 || servname != NULL)
-	return EAI_FAIL;
+    if (servname == NULL) {
+	/* Must have either nodename or servname. */
+	if (nodename == NULL)
+	    return EAI_NONAME;
+    } else {
+	struct servent *servent;
+	const char *errstr;
 
-    /* Hard-code localhost. */
+	/* Parse servname as a port number or IPv4 TCP service name. */
+	port = sudo_strtonum(servname, 0, USHRT_MAX, &errstr);
+	if (errstr != NULL && errno == ERANGE)
+	    return EAI_SERVICE;
+	if (hints != NULL && ISSET(hints->ai_flags, AI_NUMERICSERV))
+	    return EAI_NONAME;
+	servent = getservbyname(servname, "tcp");
+	if (servent == NULL)
+	    return EAI_NONAME;
+	port = htons(servent->s_port);
+    }
+
+    /* Hard-code IPv4 localhost for fuzzing. */
     ai = calloc(1, sizeof(*ai) + sizeof(struct sockaddr_in));
     if (ai == NULL)
 	return EAI_MEMORY;
@@ -205,6 +232,7 @@ sudo_getaddrinfo(
     inet_pton(AF_INET, "127.0.0.1", &addr);
     ((struct sockaddr_in *)ai->ai_addr)->sin_family = AF_INET;
     ((struct sockaddr_in *)ai->ai_addr)->sin_addr = addr;
+    ((struct sockaddr_in *)ai->ai_addr)->sin_port = htons(port);
     *res = ai;
     return 0;
 }
@@ -262,7 +290,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (fp == NULL)
         return 0;
 
-    setprogname("fuzz_policy");
+    initprogname("fuzz_policy");
     sudoers_debug_register(getprogname(), NULL);
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
@@ -368,7 +396,9 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
 	/* Additional environment variables to add. */
 	if (strncmp(line, "env=", sizeof("env=") - 1) == 0) {
-	    push(&env_add, line);
+	    const char *cp = line + sizeof("env=") - 1;
+	    if (strchr(cp, '=') != NULL)
+		push(&env_add, cp);
 	    continue;
 	}
 
@@ -380,8 +410,8 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     line = NULL;
 
     /* Exercise code paths that use KRB5CCNAME and SUDO_PROMPT. */
-    putenv("KRB5CCNAME=/tmp/krb5cc_123456");
-    putenv("SUDO_PROMPT=[sudo] password for %p: ");
+    putenv((char *)"KRB5CCNAME=/tmp/krb5cc_123456");
+    putenv((char *)"SUDO_PROMPT=[sudo] password for %p: ");
 
     sudoers_policy.register_hooks(SUDO_API_VERSION, fuzz_hook_stub);
 
@@ -488,13 +518,9 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	    sudoers_policy.close(0, 0);
 	else
 	    sudoers_cleanup();
-
-	/* Call a second time to free old env pointer. */
-	env_init(NULL);
     }
 
     sudoers_policy.deregister_hooks(SUDO_API_VERSION, fuzz_hook_stub);
-    sudoers_gc_run();
 
     free_dynamic_array(&plugin_args);
     free_dynamic_array(&settings);
@@ -588,7 +614,7 @@ sudo_file_close(struct sudo_nss *nss)
 
 /* STUB */
 static struct sudoers_parse_tree *
-sudo_file_parse(struct sudo_nss *nss)
+sudo_file_parse(const struct sudo_nss *nss)
 {
     static struct sudoers_parse_tree parse_tree;
 
@@ -597,14 +623,14 @@ sudo_file_parse(struct sudo_nss *nss)
 
 /* STUB */
 static int
-sudo_file_query(struct sudo_nss *nss, struct passwd *pw)
+sudo_file_query(const struct sudo_nss *nss, struct passwd *pw)
 {
     return 0;
 }
 
 /* STUB */
 static int
-sudo_file_getdefs(struct sudo_nss *nss)
+sudo_file_getdefs(const struct sudo_nss *nss)
 {
     /* Set some Defaults */
     set_default("log_input", NULL, true, "sudoers", 1, 1, false);
@@ -660,6 +686,7 @@ sudo_file_getdefs(struct sudo_nss *nss)
 
 static struct sudo_nss sudo_nss_file = {
     { NULL, NULL },
+    "sudoers",
     sudo_file_open,
     sudo_file_close,
     sudo_file_parse,
@@ -742,6 +769,21 @@ log_exit_status(int exit_status)
 }
 
 /* STUB */
+bool
+mail_parse_errors(void)
+{
+    return true;
+}
+
+/* STUB */
+bool
+log_parse_error(const char *file, int line, int column, const char *fmt,
+    va_list args)
+{
+    return true;
+}
+
+/* STUB */
 int
 audit_failure(char *const argv[], char const *const fmt, ...)
 {
@@ -773,8 +815,7 @@ display_privs(struct sudo_nss_list *snl, struct passwd *pw, bool verbose)
 /* STUB */
 int
 find_path(const char *infile, char **outfile, struct stat *sbp,
-    const char *path, const char *runchroot, int ignore_dot,
-    char * const *allowlist)
+    const char *path, int ignore_dot, char * const *allowlist)
 {
     switch (pass) {
     case PASS_CHECK_NOT_FOUND:
@@ -804,7 +845,7 @@ expand_iolog_path(const char *inpath, char *path, size_t pathlen,
 
 /* STUB */
 bool
-iolog_nextid(char *iolog_dir, char sessid[7])
+iolog_nextid(const char *iolog_dir, char sessid[7])
 {
     strlcpy(sessid, "000001", 7);
     return true;
@@ -812,35 +853,48 @@ iolog_nextid(char *iolog_dir, char sessid[7])
 
 /* STUB */
 bool
-cb_maxseq(const union sudo_defs_val *sd_un, int op)
+cb_maxseq(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_user(const union sudo_defs_val *sd_un, int op)
+cb_iolog_user(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_group(const union sudo_defs_val *sd_un, int op)
+cb_iolog_group(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_iolog_mode(const union sudo_defs_val *sd_un, int op)
+cb_iolog_mode(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
 
 /* STUB */
 bool
-cb_group_plugin(const union sudo_defs_val *sd_un, int op)
+cb_group_plugin(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return true;
 }
+
+/* STUB */
+void
+bsdauth_set_style(const char *style)
+{
+    return;
+}
+

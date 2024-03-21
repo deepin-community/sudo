@@ -25,9 +25,4 @@ case "$1" in
   ;;
 esac
 
-# remove sudoers entries, if any, from nsswitch.conf
-if [ -w /etc/nsswitch.conf ] ; then
-	sed -i /^sudoers:/d /etc/nsswitch.conf
-fi
-
 #DEBHELPER#

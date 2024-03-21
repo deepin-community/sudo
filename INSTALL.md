@@ -10,16 +10,16 @@ about the `configure` script itself.
 
 ## System requirements
 
-To build sudo from the source distribution you need a POSIX-compliant
-operating system (any modern version of BSD, Linux, or Unix should work),
-an ANSI/ISO C compiler that supports the "long long" type, variadic
-macros (a C99 feature) as well as the ar, make, and ranlib utilities.
+To build sudo from the source distribution you will need a
+POSIX-compliant operating system (any modern version of BSD, Linux,
+or Unix should work), a C compiler that conforms to ISO C99 or
+higher, and the ar, make, and ranlib utilities.
 
 If you wish to modify the parser then you will need flex version
-2.5.2 or later and either bison or byacc (sudo comes with a
-pre-generated parser).  You'll also have to run configure with the
---with-devel option or pass DEVEL=1 to make.  You can get flex from
-https://github.com/westes/flex/.  You can get GNU bison from
+2.5.2 or later and either bison or byacc (sudo comes with a parser
+generated with GNU bison).  You'll also have to run configure with
+the --with-devel option or pass DEVEL=1 to make.  You can get flex
+from https://github.com/westes/flex/.  You can get GNU bison from
 https://ftp.gnu.org/pub/gnu/bison/ or any GNU mirror.
 
 Some systems will also require that development library packages be
@@ -30,13 +30,13 @@ for a list of packages required to build sudo.
 
 ## Simple sudo installation
 
-0. If you are upgrading from a previous version of sudo, read
+1. If you are upgrading from a previous version of sudo, read
    [docs/UPGRADE.md](docs/UPGRADE.md) before proceeding.
 
-1. Read the "OS dependent notes" section for any particular
+2. Read the "OS dependent notes" section for any particular
    "gotchas" relating to your operating system.
 
-2. `cd` to the source or build directory and type `./configure`
+3. `cd` to the source or build directory and type `./configure`
    to generate a Makefile and config.h file suitable for building
    sudo.  Before you actually run configure you should read the
    "Available configure options" section to see if there are
@@ -110,7 +110,8 @@ Defaults are listed in brackets after the description.
         Install plugins and helper programs in DIR/sudo [PREFIX/libexec/sudo]
 
     --sysconfdir=DIR
-        Look for `sudo.conf` and `sudoers` files in DIR. [/etc]
+        Look for configuration files such as `sudo.conf` and `sudoers`
+        in DIR. [/etc]
 
     --includedir=DIR
         Install sudo_plugin.h include file in DIR [PREFIX/include]
@@ -138,9 +139,9 @@ Defaults are listed in brackets after the description.
         The directory to be used for sudo-specific files that do
         not survive a system reboot.  This is typically where the
         time stamp directory is located.  By default, configure
-        will choose from the following list:
-            /run/sudo /var/run/sudo, /var/db/sudo, /var/lib/sudo,
-            /var/adm/sudo, /usr/adm/sudo
+        will choose from the following list: /run/sudo /var/run/sudo,
+        /var/db/sudo, /var/lib/sudo, /var/adm/sudo, /usr/adm/sudo.
+
         This directory should be cleared when the system reboots.
         On systems that lack /run or /var/run, the default rundir and
         vardir may be the same.  In this case, only the ts directory
@@ -150,8 +151,9 @@ Defaults are listed in brackets after the description.
         The directory to be used for sudo-specific files that survive
         a system reboot.  This is typically where the lecture status
         directory is stored.  By default, configure will choose
-        from the following list:
-            /var/db/sudo, /var/lib/sudo, /var/adm/sudo, /usr/adm/sudo
+        from the following list: /var/db/sudo, /var/lib/sudo,
+        /var/adm/sudo, /usr/adm/sudo.
+
         This directory should **not** be cleared when the system boots.
 
     --with-relaydir=DIR
@@ -165,8 +167,9 @@ Defaults are listed in brackets after the description.
         is only used when sanitizing the TZ environment variable
         to allow for fully-qualified paths in TZ.  By default,
         configure will look for an existing "zoneinfo" directory
-        in the following locations:
-            /usr/share /usr/share/lib /usr/lib /etc
+        in the following locations: /usr/share, /usr/share/lib,
+        /usr/lib, /etc.
+
         If no zoneinfo directory is found, the TZ variable may not
         contain a fully-qualified path.
 
@@ -220,12 +223,15 @@ Defaults are listed in brackets after the description.
     --disable-hardening
         Disable the use of compiler/linker exploit mitigation options
         which are enabled by default.  This includes compiling with
-        _FORTIFY_SOURCE defined to 2, building with -fstack-protector
-        and linking with -zrelro, where supported.
+        _FORTIFY_SOURCE defined to 2, building with -fstack-protector,
+        -fstack-clash-protection, -fcf-protection and linking with
+        -zrelro, -znow, and -znoexecstack where supported.
 
-    --disable-ssp
-        Disable use of the -fstack-protector compiler option.
-        This does not affect the other hardening options.
+    --disable-largefile
+        Disable support for large (64-bit) files on 32-bit systems
+        where the maximum file size is normally 4GB.  By default,
+        configure will enable support for 64-bit file sizes if
+        supported by the operating system.
 
     --disable-leaks
         Avoid leaking memory even when we are headed for exit,
@@ -275,6 +281,10 @@ Defaults are listed in brackets after the description.
         instead.  This option may only be used in conjunction with
         the --enable-static-sudoers option.
 
+    --disable-ssp
+        Disable use of the -fstack-protector compiler option.
+        This does not affect the other hardening options.
+
     --enable-static-sudoers
         By default, the sudoers plugin is built and installed as a
         dynamic shared object.  When the --enable-static-sudoers
@@ -290,6 +300,11 @@ Defaults are listed in brackets after the description.
         systemd.  If this option is not specified, configure will
         use the /usr/lib/tmpfiles.d directory if the file
         /usr/lib/tmpfiles.d/systemd.conf exists.
+
+    --disable-year2038
+	Disable support for dates after January 2038.  By default,
+        configure will enable support for 64-bit time_t values if
+	supported by the operating system.
 
     --enable-zlib[=location]
         Enable the use of the zlib compress library when storing
@@ -319,7 +334,7 @@ Defaults are listed in brackets after the description.
         Adds the specified library (or libraries) to SUDO_LIBS and
         and VISUDO_LIBS so sudo will link against them.  If the
         library doesn't start with "-l" or end in ".a" or ".o" a
-        "-l" will be pre-pended to it.  Multiple libraries may be
+        "-l" will be prepended to it.  Multiple libraries may be
         specified as long as they are space separated.
 
     --with-libtool=PATH
@@ -331,7 +346,27 @@ Defaults are listed in brackets after the description.
         via the user's PATH) and the default libtool that comes
         with sudo.
 
+    --with-aix-soname=svr4
+        Starting with version 1.9.13, sudo will build AIX-style
+        shared libraries and dynamic shared objects by default
+        instead of svr4-style..  This means that the default sudo
+        plugins are now .a (archive) files that contain a .so shared
+        object file instead of bare .so files.  This was done to
+        improve compatibility with the AIX Freeware ecosystem,
+        specifically, the AIX Freeware build of OpenSSL.  To restore
+        the old, pre-1.9.13 behavior, run configure using the
+        --with-aix-soname=svr4 option.
+
 ### Optional features:
+
+    --enable-adminconf=[DIR]
+        Search for configuration files in adminconfdir (PREFIX/etc
+        by default) in preference to configuration files in sysconfdir
+        (/etc by default).  This can be used on systems where
+        sysconfdir is located on a read-only filesystem.  When this
+        option is enabled, the visudo utility will store edited
+        sudoers files in adminconfdir if the original was located
+        in sysconfdir.
 
     --disable-root-mailer
         By default sudo will run the mailer as root when tattling
@@ -373,6 +408,10 @@ Defaults are listed in brackets after the description.
         will compile in support for SASL authentication if the
         ldap_sasl_interactive_bind_s() function is present in the
         LDAP libraries.
+
+    --with-apparmor
+        Enable support for the AppArmor Linux Security Module (LSM) on
+        supported systems.
 
     --with-logincap
         This adds support for login classes specified in `/etc/login.conf`.
@@ -748,7 +787,7 @@ Defaults are listed in brackets after the description.
         the standard output.  This value may overridden at run-time
         in the sudo.conf file.
 
-    --with-badpass-message="BAD PASSWORD MESSAGE"
+    --with-badpass-message="MESSAGE"
         Message that is displayed if a user enters an incorrect password.
         The default is "Sorry, try again." unless insults are turned on.  
         Sudoers option: badpass_message
@@ -905,7 +944,7 @@ Defaults are listed in brackets after the description.
         the command they are trying is not listed in their sudoers file entry.  
         Sudoers option: mail_no_perms
 
-    --with-mailsubject="SUBJECT OF MAIL"
+    --with-mailsubject="SUBJECT"
         Subject of the mail sent to the "mailto" user. The token "%h"
         will expand to the hostname of the machine.
         The default value is "*** SECURITY information for %h ***".  
@@ -916,7 +955,7 @@ Defaults are listed in brackets after the description.
         This should go to a sysadmin at your site.  The default value is "root".  
         Sudoers option: mailto
 
-    --with-passprompt="PASSWORD PROMPT"
+    --with-passprompt="PROMPT"
         Default prompt to use when asking for a password; can be overridden
         via the -p option and the SUDO_PROMPT environment variable. Supports
         the "%H", "%h", "%U", and "%u" escapes as documented in the sudo

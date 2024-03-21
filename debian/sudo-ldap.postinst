@@ -21,12 +21,6 @@ if [ ! -f /etc/sudoers ];then
 	echo "WARNING:  /etc/sudoers not present!";
 fi
 
-# modify nsswitch.conf if needed
-if [ -z "`grep \"^sudoers:\" /etc/nsswitch.conf`" ]
-then
-	echo "sudoers:	files ldap" >> /etc/nsswitch.conf
-fi
-
 # make sure sudoers has the correct permissions and owner/group
 if [ -f /etc/sudoers ];then
     chown root:root /etc/sudoers
@@ -46,6 +40,20 @@ rm -f /etc/sudoers.pre-conffile
 # let's make sure that's taken care of
 if [ "$1" = "configure" ] && dpkg --compare-versions "$2" lt-nl "1.8.21p2-2~" ; then
 	update-rc.d sudo remove
+fi
+
+# Between 1.8.3p2-1 and 1.19.11p3-1, sudo-ldap's postrm unconditionally
+# removed the sudoers database from /etc/nsswitch.conf.
+# This breaks the "upgrade" path of the code installed by dh_installnss,
+# but it is handled properly its "install" path.
+# If we detect that situation, we install a file to inform the dh_installnss
+# code that it should run as if sudo-ldap were being installed from scratch,
+# even though this is an upgrade.
+if [ "$1" = "configure" ] &&
+	dpkg --compare-versions "$2" gt "1.8.3p2-1" &&
+	dpkg --compare-versions "$2" lt-nl "1.9.12p1-1~"
+then
+	touch /etc/nsswitch.conf.nss.sudo-ldap-will-install
 fi
 
 #DEBHELPER#

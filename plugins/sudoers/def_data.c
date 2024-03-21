@@ -44,6 +44,12 @@ static struct def_values def_data_log_format[] = {
     { NULL, 0 },
 };
 
+static struct def_values def_data_intercept_type[] = {
+    { "dso", dso },
+    { "trace", trace },
+    { NULL, 0 },
+};
+
 struct sudo_defs_types sudo_defs_table[] = {
     {
 	"syslog", T_LOGFAC|T_BOOL,
@@ -346,8 +352,28 @@ struct sudo_defs_types sudo_defs_table[] = {
 	N_("Log user's input for the command being run"),
 	NULL,
     }, {
+	"log_stdin", T_FLAG,
+	N_("Log the command's standard input if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_ttyin", T_FLAG,
+	N_("Log the user's terminal input for the command being run"),
+	NULL,
+    }, {
 	"log_output", T_FLAG,
 	N_("Log the output of the command being run"),
+	NULL,
+    }, {
+	"log_stdout", T_FLAG,
+	N_("Log the command's standard output if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_stderr", T_FLAG,
+	N_("Log the command's standard error if not connected to a terminal"),
+	NULL,
+    }, {
+	"log_ttyout", T_FLAG,
+	N_("Log the terminal output of the command being run"),
 	NULL,
     }, {
 	"compress_io", T_FLAG,
@@ -656,6 +682,18 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"passprompt_regex", T_LIST|T_SPACE|T_BOOL,
 	N_("List of regular expressions to use when matching a password prompt"),
+	NULL,
+    }, {
+	"intercept_type", T_TUPLE,
+	N_("The mechanism used by the intercept and log_subcmds options: %s"),
+	def_data_intercept_type,
+    }, {
+	"intercept_verify", T_FLAG,
+	N_("Attempt to verify the command and arguments after execution"),
+	NULL,
+    }, {
+	"apparmor_profile", T_STR,
+	N_("AppArmor profile to use in the new security context: %s"),
 	NULL,
     }, {
 	NULL, 0, NULL

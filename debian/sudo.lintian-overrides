@@ -1,5 +1,5 @@
 # sudo is set-uid root by design.
-sudo: elevated-privileges usr/bin/sudo 4755 root/root
+sudo: elevated-privileges 4755 root/root [usr/bin/sudo]
 
 # a false alarm, see #204975
 sudo: package-has-unnecessary-activation-of-ldconfig-trigger
@@ -14,5 +14,5 @@ sudo: custom-library-search-path RUNPATH /usr/libexec/sudo [*]
 sudo: python3-script-but-no-python3-dep /usr/bin/python3 (does not satisfy python3:any | python3-minimal:any) [*]
 
 # This is a film quote
-sudo: spelling-error-in-binary usr/libexec/sudo/sudoers.so "allow to" "allow one to"
+sudo: spelling-error-in-binary "allow to" "allow one to" [usr/libexec/sudo/sudoers.so]
 

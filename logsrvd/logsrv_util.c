@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/types.h>
 
@@ -57,21 +62,24 @@ expand_buf(struct connection_buffer *buf, unsigned int needed)
 
     if (buf->size < needed) {
 	/* Expand buffer. */
-	needed = sudo_pow2_roundup(needed);
+	const unsigned int newsize = sudo_pow2_roundup(needed);
 	sudo_debug_printf(SUDO_DEBUG_INFO|SUDO_DEBUG_LINENO,
-	    "expanding buffer from %u to %u", buf->size, needed);
-	if ((newdata = malloc(needed)) == NULL) {
-	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	    debug_return_bool(false);
+	    "expanding buffer from %u to %u", buf->size, newsize);
+	if (newsize < needed) {
+	    /* overflow */
+	    errno = ENOMEM;
+	    goto oom;
 	}
-	if (buf->len - buf->off > 0)
+	if ((newdata = malloc(newsize)) == NULL)
+	    goto oom;
+	if (buf->len != buf->off)
 	    memcpy(newdata, buf->data + buf->off, buf->len - buf->off);
 	free(buf->data);
 	buf->data = newdata;
-	buf->size = needed;
+	buf->size = newsize;
     } else {
 	/* Just reset existing buffer. */
-	if (buf->len - buf->off > 0) {
+	if (buf->len != buf->off) {
 	    memmove(buf->data, buf->data + buf->off,
 		buf->len - buf->off);
 	}
@@ -80,6 +88,9 @@ expand_buf(struct connection_buffer *buf, unsigned int needed)
     buf->off = 0;
 
     debug_return_bool(true);
+oom:
+    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    debug_return_bool(false);
 }
 
 /*

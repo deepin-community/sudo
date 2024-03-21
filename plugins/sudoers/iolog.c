@@ -82,7 +82,8 @@ extern sudo_dso_public struct io_plugin sudoers_io;
  * Sudoers callback for maxseq Defaults setting.
  */
 bool
-cb_maxseq(const union sudo_defs_val *sd_un, int op)
+cb_maxseq(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     const char *errstr;
     unsigned int value;
@@ -106,7 +107,8 @@ cb_maxseq(const union sudo_defs_val *sd_un, int op)
  * Sudoers callback for iolog_user Defaults setting.
  */
 bool
-cb_iolog_user(const union sudo_defs_val *sd_un, int op)
+cb_iolog_user(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     const char *name = sd_un->str;
     struct passwd *pw;
@@ -131,7 +133,8 @@ cb_iolog_user(const union sudo_defs_val *sd_un, int op)
  * Look up I/O log group-ID from group name.
  */
 bool
-cb_iolog_group(const union sudo_defs_val *sd_un, int op)
+cb_iolog_group(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     const char *name = sd_un->str;
     struct group *gr;
@@ -156,7 +159,8 @@ cb_iolog_group(const union sudo_defs_val *sd_un, int op)
  * Sudoers callback for iolog_mode Defaults setting.
  */
 bool
-cb_iolog_mode(const union sudo_defs_val *sd_un, int op)
+cb_iolog_mode(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     iolog_set_mode(sd_un->mode);
     return true;
@@ -255,7 +259,7 @@ static void *
 set_passprompt_regex(const char *cstr)
 {
     void *handle;
-    char *cp, *last, *str;
+    char *cp, *str, *last = NULL;
     debug_decl(set_passprompt_regex, SUDOERS_DEBUG_UTIL);
 
     handle = iolog_pwfilt_alloc();
@@ -284,7 +288,7 @@ bad:
  * Pull out I/O log related data from user_info and command_info arrays.
  * Returns true if I/O logging is enabled, false if not and -1 on error.
  */
-int
+static int
 iolog_deserialize_info(struct log_details *details, char * const user_info[],
     char * const command_info[], char * const argv[], char * const user_env[])
 {
@@ -395,7 +399,6 @@ iolog_deserialize_info(struct log_details *details, char * const user_info[],
 		evlog->iolog_path = strdup(*cur + sizeof("iolog_path=") - 1);
 		if (evlog->iolog_path == NULL)
 		    goto oom;
-		evlog->iolog_file = sudo_basename(evlog->iolog_path);
 		continue;
 	    }
 	    if (strncmp(*cur, "iolog_stdin=", sizeof("iolog_stdin=") - 1) == 0) {
@@ -548,7 +551,7 @@ iolog_deserialize_info(struct log_details *details, char * const user_info[],
 	    if (strncmp(*cur, "maxseq=", sizeof("maxseq=") - 1) == 0) {
 		union sudo_defs_val sd_un;
 		sd_un.str = *cur + sizeof("maxseq=") - 1;
-		cb_maxseq(&sd_un, true);
+		cb_maxseq("policy", -1, -1, &sd_un, true);
 		continue;
 	    }
 	    break;
@@ -741,7 +744,7 @@ sudoers_io_open_remote(struct timespec *now)
 
     /* Open connection to log server, send hello and accept messages. */
     client_closure = log_server_open(&iolog_details, now, true, SEND_ACCEPT,
-	NULL, sudoers_io.event_alloc);
+	NULL);
     if (client_closure != NULL)
 	debug_return_int(1);
 
@@ -764,6 +767,8 @@ sudoers_io_open(unsigned int version, sudo_conv_t conversation,
 
     sudo_conv = conversation;
     sudo_printf = plugin_printf;
+    if (sudoers_io.event_alloc != NULL)
+	plugin_event_alloc = sudoers_io.event_alloc;
 
     bindtextdomain("sudoers", LOCALEDIR);
 
@@ -781,10 +786,8 @@ sudoers_io_open(unsigned int version, sudo_conv_t conversation,
 	}
     }
 
-    if (!sudoers_debug_register(plugin_path, &debug_files)) {
-	ret = -1;
+    if (!sudoers_debug_register(plugin_path, &debug_files))
 	goto done;
-    }
 
     /* If we have no command (because -V was specified) just return. */
     if (argc == 0)
@@ -1325,7 +1328,7 @@ sudoers_io_setops(void)
     debug_decl(sudoers_io_setops, SUDOERS_DEBUG_PLUGIN);
 
 #ifdef SUDOERS_LOG_CLIENT
-    if (sudoers_io.event_alloc != NULL && iolog_details.log_servers != NULL) {
+    if (plugin_event_alloc != NULL && iolog_details.log_servers != NULL) {
 	io_operations.open = sudoers_io_open_remote;
 	io_operations.close = sudoers_io_close_remote;
 	io_operations.log = sudoers_io_log_remote;

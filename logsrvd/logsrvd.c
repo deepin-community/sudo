@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -80,7 +85,7 @@ TAILQ_HEAD(connection_list, connection_closure);
 static struct connection_list connections = TAILQ_HEAD_INITIALIZER(connections);
 static struct listener_list listeners = TAILQ_HEAD_INITIALIZER(listeners);
 static const char server_id[] = "Sudo Audit Server " PACKAGE_VERSION;
-static const char *conf_file = _PATH_SUDO_LOGSRVD_CONF;
+static const char *conf_file = NULL;
 
 /* Event loop callbacks. */
 static void client_msg_cb(int fd, int what, void *v);
@@ -263,7 +268,7 @@ connection_close(struct connection_closure *closure)
 
 	    /* Connect to the first relay available asynchronously. */
 	    if (!connect_relay(new_closure)) {
-		sudo_warnx(U_("unable to connect to relay"));
+		sudo_warnx("%s", U_("unable to connect to relay"));
 		connection_closure_free(new_closure);
 	    }
 	}
@@ -292,26 +297,34 @@ get_free_buf(size_t len, struct connection_closure *closure)
     if (buf != NULL) {
         TAILQ_REMOVE(&closure->free_bufs, buf, entries);
     } else {
-        if ((buf = calloc(1, sizeof(*buf))) == NULL) {
-	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	    debug_return_ptr(NULL);
-	}
+        if ((buf = calloc(1, sizeof(*buf))) == NULL)
+	    goto oom;
     }
 
     if (len > buf->size) {
-	free(buf->data);
-	buf->size = sudo_pow2_roundup(len);
-	if ((buf->data = malloc(buf->size)) == NULL) {
-	    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
-	    free(buf);
-	    buf = NULL;
+	const unsigned int new_size = sudo_pow2_roundup(len);
+	if (new_size < len) {
+	    /* overflow */
+	    errno = ENOMEM;
+	    goto oom;
 	}
+	free(buf->data);
+	if ((buf->data = malloc(new_size)) == NULL)
+	    goto oom;
+	buf->size = new_size;
     }
 
     debug_return_ptr(buf);
+oom:
+    if (buf != NULL) {
+	free(buf->data);
+	free(buf);
+    }
+    sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    debug_return_ptr(NULL);
 }
 
-bool
+static bool
 fmt_server_message(struct connection_closure *closure, ServerMessage *msg)
 {
     struct connection_buffer *buf = NULL;
@@ -512,6 +525,12 @@ handle_exit(ExitMessage *msg, uint8_t *buf, size_t len,
 	debug_return_bool(false);
     }
 
+    /* Check that message is valid. */
+    if (msg->run_time == NULL) {
+	sudo_warnx(U_("%s: %s"), source, U_("invalid ExitMessage"));
+	closure->errstr = _("invalid ExitMessage");
+	debug_return_bool(false);
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received ExitMessage from %s",
 	source, __func__);
 
@@ -557,6 +576,13 @@ handle_restart(RestartMessage *msg, uint8_t *buf, size_t len,
     if (closure->state != INITIAL) {
 	sudo_warnx(U_("unexpected state %d for %s"), closure->state, source);
 	closure->errstr = _("state machine error");
+	debug_return_bool(false);
+    }
+
+    /* Check that message is valid. */
+    if (msg->log_id == NULL || msg->resume_point == NULL) {
+	sudo_warnx(U_("%s: %s"), source, U_("invalid RestartMessage"));
+	closure->errstr = _("invalid RestartMessage");
 	debug_return_bool(false);
     }
     sudo_debug_printf(SUDO_DEBUG_INFO,
@@ -637,6 +663,12 @@ handle_iobuf(int iofd, IoBuffer *iobuf, uint8_t *buf, size_t len,
 	debug_return_bool(false);
     }
 
+    /* Check that message is valid. */
+    if (iobuf->delay == NULL) {
+	sudo_warnx(U_("%s: %s"), source, U_("invalid IoBuffer"));
+	closure->errstr = _("invalid IoBuffer");
+	debug_return_bool(false);
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received IoBuffer from %s",
 	source, __func__);
 
@@ -667,6 +699,12 @@ handle_winsize(ChangeWindowSize *msg, uint8_t *buf, size_t len,
 	debug_return_bool(false);
     }
 
+    /* Check that message is valid. */
+    if (msg->delay == NULL) {
+	sudo_warnx(U_("%s: %s"), source, U_("invalid ChangeWindowSize"));
+	closure->errstr = _("invalid ChangeWindowSize");
+	debug_return_bool(false);
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received ChangeWindowSize from %s",
 	source, __func__);
 
@@ -697,6 +735,12 @@ handle_suspend(CommandSuspend *msg, uint8_t *buf, size_t len,
 	debug_return_bool(false);
     }
 
+    /* Check that message is valid. */
+    if (msg->delay == NULL || msg->signal == NULL) {
+	sudo_warnx(U_("%s: %s"), source, U_("invalid CommandSuspend"));
+	closure->errstr = _("invalid CommandSuspend");
+	debug_return_bool(false);
+    }
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received CommandSuspend from %s",
 	source, __func__);
 
@@ -725,7 +769,7 @@ handle_client_hello(ClientHello *msg, uint8_t *buf, size_t len,
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: received ClientHello",
 	__func__);
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: client ID %s",
-	__func__, msg->client_id);
+	__func__, msg->client_id ? msg->client_id : "unknown");
 
     debug_return_bool(true);
 }
@@ -743,7 +787,7 @@ handle_client_message(uint8_t *buf, size_t len,
     /* TODO: can we extract type_case without unpacking for relay case? */
     msg = client_message__unpack(NULL, len, buf);
     if (msg == NULL) {
-	sudo_warnx("unable to unpack %s size %zu", "ClientMessage", len);
+	sudo_warnx(U_("unable to unpack %s size %zu"), "ClientMessage", len);
 	debug_return_bool(false);
     }
 
@@ -917,7 +961,8 @@ server_msg_cb(int fd, int what, void *v)
 		    goto finished;
                 default:
 		    errstr = ERR_reason_error_string(ERR_get_error());
-		    sudo_warnx("%s: SSL_write: %s", closure->ipaddr, errstr);
+		    sudo_warnx("%s: SSL_write: %s", closure->ipaddr,
+			errstr ? errstr : strerror(errno));
                     goto finished;
             }
         }
@@ -928,6 +973,8 @@ server_msg_cb(int fd, int what, void *v)
     }
 
     if (nwritten == -1) {
+	if (errno == EAGAIN || errno == EINTR)
+	    debug_return;
 	sudo_warn("%s: write", closure->ipaddr);
 	goto finished;
     }
@@ -1027,7 +1074,8 @@ client_msg_cb(int fd, int what, void *v)
                     goto close_connection;
                 default:
 		    errstr = ERR_reason_error_string(ERR_get_error());
-		    sudo_warnx("%s: SSL_read: %s", closure->ipaddr, errstr);
+		    sudo_warnx("%s: SSL_read: %s", closure->ipaddr,
+			errstr ? errstr : strerror(errno));
 		    goto close_connection;
             }
         }
@@ -1041,7 +1089,7 @@ client_msg_cb(int fd, int what, void *v)
 	__func__, nread, closure->ipaddr);
     switch (nread) {
     case -1:
-	if (errno == EAGAIN)
+	if (errno == EAGAIN || errno == EINTR)
 	    debug_return;
 	sudo_warn("%s: read", closure->ipaddr);
 	goto close_connection;
@@ -1331,7 +1379,8 @@ tls_handshake_cb(int fd, int what, void *v)
             goto bad;
         default:
 	    errstr = ERR_reason_error_string(ERR_get_error());
-	    sudo_warnx("%s: SSL_accept: %s", closure->ipaddr, errstr);
+	    sudo_warnx("%s: SSL_accept: %s", closure->ipaddr,
+		errstr ? errstr : strerror(errno));
             goto bad;
     }
 
@@ -1361,7 +1410,7 @@ bad:
  * Allocate a connection closure and optionally perform TLS handshake.
  */
 static bool
-new_connection(int sock, bool tls, const struct sockaddr *sa,
+new_connection(int sock, bool tls, const union sockaddr_union *sa_un,
     struct sudo_event_base *evbase)
 {
     struct connection_closure *closure;
@@ -1371,14 +1420,12 @@ new_connection(int sock, bool tls, const struct sockaddr *sa,
 	goto bad;
 
     /* store the peer's IP address in the closure object */
-    if (sa->sa_family == AF_INET) {
-        struct sockaddr_in *sin = (struct sockaddr_in *)sa;
-        inet_ntop(AF_INET, &sin->sin_addr, closure->ipaddr,
+    if (sa_un->sa.sa_family == AF_INET) {
+        inet_ntop(AF_INET, &sa_un->sin.sin_addr, closure->ipaddr,
             sizeof(closure->ipaddr));
-#if defined(HAVE_STRUCT_IN6_ADDR)
-    } else if (sa->sa_family == AF_INET6) {
-        struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *)sa;
-        inet_ntop(AF_INET6, &sin6->sin6_addr, closure->ipaddr,
+#ifdef HAVE_STRUCT_IN6_ADDR
+    } else if (sa_un->sa.sa_family == AF_INET6) {
+        inet_ntop(AF_INET6, &sa_un->sin6.sin6_addr, closure->ipaddr,
             sizeof(closure->ipaddr));
 #endif /* HAVE_STRUCT_IN6_ADDR */
     } else {
@@ -1397,13 +1444,15 @@ new_connection(int sock, bool tls, const struct sockaddr *sa,
         /* Create the SSL object for the closure and attach it to the socket */
         if ((closure->ssl = SSL_new(logsrvd_server_tls_ctx())) == NULL) {
 	    errstr = ERR_reason_error_string(ERR_get_error());
-	    sudo_warnx(U_("%s: %s"), "SSL_new", errstr);
+	    sudo_warnx(U_("%s: %s"), "SSL_new",
+		errstr ? errstr : strerror(errno));
             goto bad;
         }
 
         if (SSL_set_fd(closure->ssl, closure->sock) != 1) {
 	    errstr = ERR_reason_error_string(ERR_get_error());
-	    sudo_warnx(U_("%s: %s"), "SSL_set_fd", errstr);
+	    sudo_warnx(U_("%s: %s"), "SSL_set_fd",
+		errstr ? errstr : strerror(errno));
             goto bad;
         }
 
@@ -1413,7 +1462,7 @@ new_connection(int sock, bool tls, const struct sockaddr *sa,
         if (SSL_set_ex_data(closure->ssl, 1, closure) <= 0) {
 	    errstr = ERR_reason_error_string(ERR_get_error());
             sudo_warnx(U_("Unable to attach user data to the ssl object: %s"),
-		errstr);
+		errstr ? errstr : strerror(errno));
             goto bad;
         }
 
@@ -1495,29 +1544,31 @@ listener_cb(int fd, int what, void *v)
 {
     struct listener *l = v;
     struct sudo_event_base *evbase = sudo_ev_get_base(l->ev);
-    union sockaddr_union s_un;
-    socklen_t salen = sizeof(s_un);
+    union sockaddr_union sa_un;
+    socklen_t salen = sizeof(sa_un);
     int sock;
     debug_decl(listener_cb, SUDO_DEBUG_UTIL);
 
-    sock = accept(fd, &s_un.sa, &salen);
+    memset(&sa_un, 0, sizeof(sa_un));
+    sock = accept(fd, &sa_un.sa, &salen);
     if (sock != -1) {
 	if (logsrvd_conf_server_tcp_keepalive()) {
 	    int keepalive = 1;
 	    if (setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, &keepalive,
-		sizeof(keepalive)) == -1) {
+		    sizeof(keepalive)) == -1) {
 		sudo_warn("SO_KEEPALIVE");
 	    }
 	}
-	if (!new_connection(sock, l->tls, &s_un.sa, evbase)) {
+	if (!new_connection(sock, l->tls, &sa_un, evbase)) {
 	    /* TODO: pause accepting on ENOMEM */
 	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
 		"unable to start new connection");
 	}
     } else {
-	if (errno != EAGAIN)
-	    sudo_warn("accept");
+	if (errno == EAGAIN || errno == EINTR)
+	    debug_return;
 	/* TODO: pause accepting on ENFILE and EMFILE */
+	sudo_warn("accept");
     }
 
     debug_return;
@@ -1536,12 +1587,12 @@ register_listener(struct server_address *addr, struct sudo_event_base *evbase)
 
     /* TODO: make non-fatal */
     if ((l = malloc(sizeof(*l))) == NULL)
-	sudo_fatal(NULL);
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     l->sock = sock;
     l->tls = addr->tls;
     l->ev = sudo_ev_alloc(sock, SUDO_EV_READ|SUDO_EV_PERSIST, listener_cb, l);
     if (l->ev == NULL)
-	sudo_fatal(NULL);
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     if (sudo_ev_add(evbase, l->ev, NULL, false) == -1)
 	sudo_fatal("%s", U_("unable to add event to queue"));
     TAILQ_INSERT_TAIL(&listeners, l, entries);
@@ -1620,7 +1671,8 @@ server_dump_stats(void)
     debug_decl(server_dump_stats, SUDO_DEBUG_UTIL);
 
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s", server_id);
-    sudo_debug_printf(SUDO_DEBUG_INFO, "configuration file: %s", conf_file);
+    sudo_debug_printf(SUDO_DEBUG_INFO, "configuration file: %s",
+	conf_file ? conf_file : _PATH_SUDO_LOGSRVD_CONF);
 
     sudo_debug_printf(SUDO_DEBUG_INFO, "listen addresses:");
     n = 0;
@@ -1632,9 +1684,11 @@ server_dump_stats(void)
 	case AF_INET:
 	    inet_ntop(AF_INET, &sa_un->sin.sin_addr, ipaddr, sizeof(ipaddr));
 	    break;
+#ifdef HAVE_STRUCT_IN6_ADDR
 	case AF_INET6:
 	    inet_ntop(AF_INET6, &sa_un->sin6.sin6_addr, ipaddr, sizeof(ipaddr));
 	    break;
+#endif /* HAVE_STRUCT_IN6_ADDR */
 	default:
 	    (void)strlcpy(ipaddr, "[unknown]", sizeof(ipaddr));
 	    break;
@@ -1725,7 +1779,7 @@ register_signal(int signo, struct sudo_event_base *base)
 
     ev = sudo_ev_alloc(signo, SUDO_EV_SIGNAL, signal_cb, base);
     if (ev == NULL)
-	sudo_fatal(NULL);
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
     if (sudo_ev_add(base, ev, NULL, false) == -1)
 	sudo_fatal("%s", U_("unable to add event to queue"));
 
@@ -1747,8 +1801,7 @@ static void
 write_pidfile(void)
 {
     FILE *fp;
-    int fd;
-    bool success;
+    int dfd, fd;
     mode_t oldmask;
     const char *pid_file = logsrvd_conf_pid_file();
     debug_decl(write_pidfile, SUDO_DEBUG_UTIL);
@@ -1759,10 +1812,11 @@ write_pidfile(void)
     /* Default logsrvd umask is more restrictive (077). */
     oldmask = umask(S_IWGRP|S_IWOTH);
 
-    success = sudo_mkdir_parents(pid_file, ROOT_UID, ROOT_GID,
+    dfd = sudo_open_parent_dir(pid_file, ROOT_UID, ROOT_GID,
 	S_IRWXU|S_IXGRP|S_IXOTH, false);
-    if (success) {
-	fd = open(pid_file, O_WRONLY|O_CREAT|O_NOFOLLOW, 0644);
+    if (dfd != -1) {
+	const char *base = sudo_basename(pid_file);
+	fd = openat(dfd, base, O_WRONLY|O_CREAT|O_NOFOLLOW, 0644);
 	if (fd == -1 || (fp = fdopen(fd, "w")) == NULL) {
 	    sudo_warn("%s", pid_file);
 	    if (fd != -1)
@@ -1774,6 +1828,7 @@ write_pidfile(void)
 		sudo_warn("%s", pid_file);
 	    fclose(fp);
 	}
+	close(dfd);
     }
     umask(oldmask);
 
@@ -1941,7 +1996,7 @@ main(int argc, char *argv[])
         exit(EXIT_FAILURE);
 
     if ((evbase = sudo_ev_base_alloc()) == NULL)
-	sudo_fatal(NULL);
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 
     /* Initialize listeners. */
     if (!server_setup(evbase))

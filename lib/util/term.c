@@ -97,7 +97,7 @@ sudo_dso_public int sudo_term_kill;
 static volatile sig_atomic_t got_sigttou;
 
 /*
- * SIGTTOU signal handler for term_restore that just sets a flag.
+ * SIGTTOU signal handler for tcsetattr_nobg() that just sets a flag.
  */
 static void
 sigttou(int signo)
@@ -115,6 +115,7 @@ tcsetattr_nobg(int fd, int flags, struct termios *tp)
 {
     struct sigaction sa, osa;
     int rc;
+    debug_decl(tcsetattr_nobg, SUDO_DEBUG_UTIL);
 
     /*
      * If we receive SIGTTOU from tcsetattr() it means we are
@@ -131,7 +132,7 @@ tcsetattr_nobg(int fd, int flags, struct termios *tp)
     } while (rc != 0 && errno == EINTR && !got_sigttou);
     sigaction(SIGTTOU, &osa, NULL);
 
-    return rc;
+    debug_return_int(rc);
 }
 
 /*
@@ -177,22 +178,30 @@ sudo_term_noecho_v1(int fd)
 }
 
 /*
- * Set terminal to raw mode with optional terminal signals.
+ * Set terminal to raw mode as modified by flags.
  * Returns true on success or false on failure.
  */
 bool
-sudo_term_raw_v1(int fd, int isig)
+sudo_term_raw_v1(int fd, unsigned int flags)
 {
     struct termios term;
+    tcflag_t oflag;
     debug_decl(sudo_term_raw, SUDO_DEBUG_UTIL);
 
     if (!changed && tcgetattr(fd, &oterm) != 0)
 	debug_return_bool(false);
     (void) memcpy(&term, &oterm, sizeof(term));
-    /* Set terminal to raw mode but optionally enable terminal signals. */
+    /*
+     * Set terminal to raw mode but optionally enable terminal signals
+     * and/or preserve output flags.
+     */
+    if (ISSET(flags, SUDO_TERM_OFLAG))
+	oflag = term.c_oflag;
     cfmakeraw(&term);
-    if (isig)
+    if (ISSET(flags, SUDO_TERM_ISIG))
 	SET(term.c_lflag, ISIG);
+    if (ISSET(flags, SUDO_TERM_OFLAG))
+	term.c_oflag = oflag;
     if (tcsetattr_nobg(fd, TCSASOFT|TCSADRAIN, &term) == 0) {
 	changed = 1;
     	debug_return_bool(true);
@@ -285,6 +294,30 @@ sudo_term_copy_v1(int src, int dst)
 
     if (ioctl(src, TIOCGWINSZ, &wsize) == 0)
 	(void)ioctl(dst, TIOCSWINSZ, &wsize);
+
+    debug_return_bool(true);
+}
+
+/*
+ * Returns true if fd refers to a tty in raw mode, else false.
+ */
+bool
+sudo_term_is_raw_v1(int fd)
+{
+    struct termios term;
+    debug_decl(sudo_term_is_raw, SUDO_DEBUG_UTIL);
+
+    if (tcgetattr(fd, &term) != 0)
+	debug_return_bool(false);
+
+    if (term.c_cc[VMIN] != 1 || term.c_cc[VTIME] != 0)
+	debug_return_bool(false);
+
+    if (ISSET(term.c_oflag, OPOST))
+	debug_return_bool(false);
+
+    if (ISSET(term.c_oflag, ECHO|ECHONL|ICANON))
+	debug_return_bool(false);
 
     debug_return_bool(true);
 }

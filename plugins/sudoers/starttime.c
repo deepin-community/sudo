@@ -33,7 +33,7 @@
 #include <sys/stat.h>
 #if defined(HAVE_KINFO_PROC_44BSD) || defined (HAVE_KINFO_PROC_OPENBSD) || defined(HAVE_KINFO_PROC2_NETBSD)
 # include <sys/sysctl.h>
-#elif defined(HAVE_KINFO_PROC_FREEBSD)
+#elif defined(HAVE_KINFO_PROC_FREEBSD) || defined(HAVE_KINFO_PROC_DFLY)
 # include <sys/param.h>
 # include <sys/sysctl.h>
 # include <sys/user.h>
@@ -45,6 +45,12 @@
 #endif
 #ifdef HAVE_PSTAT_GETPROC
 # include <sys/pstat.h>
+#endif
+
+#if defined(__gnu_hurd__)
+# include <hurd.h>
+# include <mach/task_info.h>
+# include <mach/time_value.h>
 #endif
 
 #include <stdio.h>
@@ -70,7 +76,7 @@
 # define SUDO_KERN_PROC		KERN_PROC
 # define sudo_kinfo_proc	kinfo_proc
 # define sudo_kp_namelen	6
-#elif defined(HAVE_KINFO_PROC_FREEBSD) || defined(HAVE_KINFO_PROC_44BSD)
+#elif defined(HAVE_KINFO_PROC_FREEBSD) || defined(HAVE_KINFO_PROC_DFLY) || defined(HAVE_KINFO_PROC_44BSD)
 # define SUDO_KERN_PROC		KERN_PROC
 # define sudo_kinfo_proc	kinfo_proc
 # define sudo_kp_namelen	4
@@ -113,8 +119,11 @@ get_starttime(pid_t pid, struct timespec *starttime)
     }
     if (rc != -1) {
 #if defined(HAVE_KINFO_PROC_FREEBSD)
-	/* FreeBSD and Dragonfly */
+	/* FreeBSD. */
 	TIMEVAL_TO_TIMESPEC(&ki_proc->ki_start, starttime);
+#elif defined(HAVE_KINFO_PROC_DFLY)
+	/* Dragonfly. */
+	TIMEVAL_TO_TIMESPEC(&ki_proc->kp_start, starttime);
 #elif defined(HAVE_KINFO_PROC_44BSD)
 	/* 4.4BSD and macOS */
 	TIMEVAL_TO_TIMESPEC(&ki_proc->kp_proc.p_starttime, starttime);
@@ -293,6 +302,31 @@ get_starttime(pid_t pid, struct timespec *starttime)
 
     sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
 	"unable to get start time for %d via pstat_getproc", (int)pid);
+    debug_return_int(-1);
+}
+#elif defined(__gnu_hurd__)
+int
+get_starttime(pid_t pid, struct timespec *starttime)
+{
+    mach_msg_type_number_t count;
+    struct task_basic_info info;
+    kern_return_t error;
+    task_t target;
+    debug_decl(get_starttime, SUDOERS_DEBUG_UTIL);
+
+    target = pid2task(pid);
+    if (target != MACH_PORT_NULL) {
+	count = sizeof(info) / sizeof(integer_t);
+	error = task_info(target, TASK_BASIC_INFO, (task_info_t)&info, &count);
+	if (error == KERN_SUCCESS) {
+	    starttime->tv_sec = info.creation_time.seconds;
+	    starttime->tv_nsec = info.creation_time.microseconds * 1000;
+	    debug_return_int(0);
+	}
+    }
+
+    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
+	"unable to get start time for %d via task_info", (int)pid);
     debug_return_int(-1);
 }
 #else
