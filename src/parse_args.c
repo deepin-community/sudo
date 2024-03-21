@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 1993-1996, 1998-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 1993-1996, 1998-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -47,66 +47,45 @@ int tgetpass_flags;
 /*
  * Local functions.
  */
-static void help(void) __attribute__((__noreturn__));
-static void usage_excl(void) __attribute__((__noreturn__));
+sudo_noreturn static void help(void);
+sudo_noreturn static void usage_excl(void);
+sudo_noreturn static void usage_excl_ticket(void);
 
 /*
- * Mapping of command line flags to name/value settings.
+ * Mapping of command line options to name/value settings.
+ * Do not reorder, indexes must match ARG_ defines in sudo.h.
  */
 static struct sudo_settings sudo_settings[] = {
-#define ARG_BSDAUTH_TYPE 0
     { "bsdauth_type" },
-#define ARG_LOGIN_CLASS 1
     { "login_class" },
-#define ARG_PRESERVE_ENVIRONMENT 2
     { "preserve_environment" },
-#define ARG_RUNAS_GROUP 3
     { "runas_group" },
-#define ARG_SET_HOME 4
     { "set_home" },
-#define ARG_USER_SHELL 5
     { "run_shell" },
-#define ARG_LOGIN_SHELL 6
     { "login_shell" },
-#define ARG_IGNORE_TICKET 7
     { "ignore_ticket" },
-#define ARG_PROMPT 8
+    { "update_ticket" },
     { "prompt" },
-#define ARG_SELINUX_ROLE 9
     { "selinux_role" },
-#define ARG_SELINUX_TYPE 10
     { "selinux_type" },
-#define ARG_RUNAS_USER 11
     { "runas_user" },
-#define ARG_PROGNAME 12
     { "progname" },
-#define ARG_IMPLIED_SHELL 13
     { "implied_shell" },
-#define ARG_PRESERVE_GROUPS 14
     { "preserve_groups" },
-#define ARG_NONINTERACTIVE 15
     { "noninteractive" },
-#define ARG_SUDOEDIT 16
     { "sudoedit" },
-#define ARG_CLOSEFROM 17
     { "closefrom" },
-#define ARG_NET_ADDRS 18
     { "network_addrs" },
-#define ARG_MAX_GROUPS 19
     { "max_groups" },
-#define ARG_PLUGIN_DIR 20
     { "plugin_dir" },
-#define ARG_REMOTE_HOST 21
     { "remote_host" },
-#define ARG_TIMEOUT 22
     { "timeout" },
-#define ARG_CHROOT 23
     { "cmnd_chroot" },
-#define ARG_CWD 24
     { "cmnd_cwd" },
-#define ARG_ASKPASS 25
     { "askpass" },
-#define NUM_SETTINGS 26
+    { "intercept_setid" },
+    { "intercept_ptrace" },
+    { "apparmor_profile" },
     { NULL }
 };
 
@@ -134,8 +113,8 @@ struct environment {
  * There is a more limited set of options for sudoedit (the sudo-specific
  * long options are listed first).
  */
-static const char sudo_short_opts[] = "+Aa:BbC:c:D:Eeg:Hh::iKklnPp:R:r:SsT:t:U:u:Vv";
-static const char edit_short_opts[] = "+Aa:BC:c:D:g:h::knp:R:r:ST:t:u:V";
+static const char sudo_short_opts[] = "+Aa:BbC:c:D:Eeg:Hh::iKklNnPp:R:r:SsT:t:U:u:Vv";
+static const char edit_short_opts[] = "+Aa:BC:c:D:g:h::KkNnp:R:r:ST:t:u:V";
 static struct option sudo_long_opts[] = {
     /* sudo-specific long options */
     { "background",	no_argument,		NULL,	'b' },
@@ -160,6 +139,7 @@ static struct option sudo_long_opts[] = {
     { "help",		no_argument,		NULL,	'h' },
     { "host",		required_argument,	NULL,	OPT_HOSTNAME },
     { "reset-timestamp", no_argument,		NULL,	'k' },
+    { "no-update",	no_argument,		NULL,	'N' },
     { "non-interactive", no_argument,		NULL,	'n' },
     { "prompt",		required_argument,	NULL,	'p' },
     { "chroot",		required_argument,	NULL,	'R' },
@@ -246,12 +226,14 @@ parse_env_list(struct environment *e, char *list)
  * for the command to be run (if we are running one).
  */
 int
-parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
-    struct sudo_settings **settingsp, char ***env_addp)
+parse_args(int argc, char **argv, const char *shell, int *old_optind,
+    int *nargc, char ***nargv, struct sudo_settings **settingsp,
+    char ***env_addp, const char **list_userp)
 {
     const char *progname, *short_opts = sudo_short_opts;
     struct option *long_opts = sudo_long_opts;
     struct environment extra_env;
+    const char *list_user = NULL;
     int mode = 0;		/* what mode is sudo to be run in? */
     int flags = 0;		/* mode flags */
     int valid_flags = DEFAULT_VALID_FLAGS;
@@ -298,7 +280,7 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 
     /* Returns true if next option is an environment variable */
 #define is_envar (optind < argc && argv[optind][0] != '/' && \
-	    strchr(argv[optind], '=') != NULL)
+	    argv[optind][0] != '=' && strchr(argv[optind], '=') != NULL)
 
     /* Space for environment variables is lazy allocated. */
     memset(&extra_env, 0, sizeof(extra_env));
@@ -426,15 +408,16 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 		    sudo_settings[ARG_LOGIN_SHELL].value = "true";
 		    SET(flags, MODE_LOGIN_SHELL);
 		    break;
-		case 'k':
-		    sudo_settings[ARG_IGNORE_TICKET].value = "true";
-		    break;
 		case 'K':
-		    sudo_settings[ARG_IGNORE_TICKET].value = "true";
 		    if (mode && mode != MODE_KILL)
 			usage_excl();
 		    mode = MODE_KILL;
 		    valid_flags = 0;
+		    FALLTHROUGH;
+		case 'k':
+		    if (sudo_settings[ARG_UPDATE_TICKET].value != NULL)
+			usage_excl_ticket();
+		    sudo_settings[ARG_IGNORE_TICKET].value = "true";
 		    break;
 		case 'l':
 		    if (mode) {
@@ -445,6 +428,11 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 		    }
 		    mode = MODE_LIST;
 		    valid_flags = LIST_VALID_FLAGS;
+		    break;
+		case 'N':
+		    if (sudo_settings[ARG_IGNORE_TICKET].value != NULL)
+			usage_excl_ticket();
+		    sudo_settings[ARG_UPDATE_TICKET].value = "false";
 		    break;
 		case 'n':
 		    SET(flags, MODE_NONINTERACTIVE);
@@ -610,12 +598,17 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 #ifdef ENABLE_SUDO_PLUGIN_API
     sudo_settings[ARG_PLUGIN_DIR].value = sudo_conf_plugin_dir_path();
 #endif
+    if (exec_ptrace_intercept_supported())
+	sudo_settings[ARG_INTERCEPT_SETID].value = "true";
+    if (exec_ptrace_subcmds_supported())
+	sudo_settings[ARG_INTERCEPT_PTRACE].value = "true";
 
     if (mode == MODE_HELP)
 	help();
 
     /*
      * For shell mode we need to rewrite argv
+     * TODO: move this to the policy plugin and make escaping configurable
      */
     if (ISSET(flags, MODE_SHELL|MODE_LOGIN_SHELL) && ISSET(mode, MODE_RUN)) {
 	char **av, *cmnd = NULL;
@@ -655,9 +648,9 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 	if (!gc_add(GC_PTR, av))
 	    exit(EXIT_FAILURE);
 
-	av[0] = (char *)user_details.shell; /* plugin may override shell */
+	av[0] = (char *)shell;	/* plugin may override shell */
 	if (cmnd != NULL) {
-	    av[1] = "-c";
+	    av[1] = (char *)"-c";
 	    av[2] = cmnd;
 	}
 	av[ac] = NULL;
@@ -681,7 +674,7 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
 	    exit(EXIT_FAILURE);
 
 	/* Must have the command in argv[0]. */
-	av[0] = "sudoedit";
+	av[0] = (char *)"sudoedit";
 	for (ac = 0; argv[ac] != NULL; ac++) {
 	    av[ac + 1] = argv[ac];
 	}
@@ -698,19 +691,8 @@ parse_args(int argc, char **argv, int *old_optind, int *nargc, char ***nargv,
     *env_addp = extra_env.envp;
     *nargc = argc;
     *nargv = argv;
+    *list_userp = list_user;
     debug_return_int(mode | flags);
-}
-
-static int
-usage_err(const char *buf)
-{
-    return fputs(buf, stderr);
-}
-
-static int
-usage_out(const char *buf)
-{
-    return fputs(buf, stdout);
 }
 
 /*
@@ -718,40 +700,26 @@ usage_out(const char *buf)
  * The actual usage strings are in sudo_usage.h for configure substitution.
  */
 static void
-display_usage(int (*output)(const char *))
+display_usage(FILE *fp)
 {
-    struct sudo_lbuf lbuf;
-    char *uvec[6];
-    int i, ulen;
+    const char * const **uvecs = sudo_usage;
+    const char * const *uvec;
+    int i, indent;
 
     /*
      * Use usage vectors appropriate to the progname.
      */
-    if (strcmp(getprogname(), "sudoedit") == 0) {
-	uvec[0] = SUDO_USAGE0;
-	uvec[1] = &SUDO_USAGE5[3];	/* skip the leading "-e " */
-	uvec[2] = NULL;
-    } else {
-	uvec[0] = SUDO_USAGE1;
-	uvec[1] = SUDO_USAGE2;
-	uvec[2] = SUDO_USAGE3;
-	uvec[3] = SUDO_USAGE4;
-	uvec[4] = SUDO_USAGE5;
-	uvec[5] = NULL;
-    }
+    if (strcmp(getprogname(), "sudoedit") == 0)
+	uvecs = sudoedit_usage;
 
-    /*
-     * Print usage and wrap lines as needed, depending on the
-     * tty width.
-     */
-    ulen = (int)strlen(getprogname()) + 8;
-    sudo_lbuf_init(&lbuf, output, ulen, NULL,
-	user_details.ts_cols);
-    for (i = 0; uvec[i] != NULL; i++) {
-	sudo_lbuf_append(&lbuf, "usage: %s%s", getprogname(), uvec[i]);
-	sudo_lbuf_print(&lbuf);
+    indent = strlen(getprogname()) + 8;
+    while ((uvec = *uvecs) != NULL) {
+	(void)fprintf(fp, "usage: %s %s\n", getprogname(), uvec[0]);
+	for (i = 1; uvec[i] != NULL; i++) {
+	    (void)fprintf(fp, "%*s%s\n", indent, "", uvec[i]);
+	}
+	uvecs++;
     }
-    sudo_lbuf_destroy(&lbuf);
 }
 
 /*
@@ -760,7 +728,7 @@ display_usage(int (*output)(const char *))
 void
 usage(void)
 {
-    display_usage(usage_err);
+    display_usage(stderr);
     exit(EXIT_FAILURE);
 }
 
@@ -777,6 +745,25 @@ usage_excl(void)
     usage();
 }
 
+/*
+ * Tell which options are mutually exclusive and exit.
+ */
+static void
+usage_excl_ticket(void)
+{
+    debug_decl(usage_excl_ticket, SUDO_DEBUG_ARGS);
+
+    sudo_warnx("%s",
+	U_("Only one of the -K, -k or -N options may be specified"));
+    usage();
+}
+
+static int
+help_out(const char *buf)
+{
+    return fputs(buf, stdout);
+}
+
 static void
 help(void)
 {
@@ -786,17 +773,15 @@ help(void)
     bool sudoedit = false;
     debug_decl(help, SUDO_DEBUG_ARGS);
 
-    sudo_lbuf_init(&lbuf, usage_out, indent, NULL, user_details.ts_cols);
     if (strcmp(pname, "sudoedit") == 0) {
 	sudoedit = true;
-	sudo_lbuf_append(&lbuf, _("%s - edit files as another user\n\n"), pname);
+	(void)printf(_("%s - edit files as another user\n\n"), pname);
     } else {
-	sudo_lbuf_append(&lbuf, _("%s - execute a command as another user\n\n"), pname);
+	(void)printf(_("%s - execute a command as another user\n\n"), pname);
     }
-    sudo_lbuf_print(&lbuf);
+    display_usage(stdout);
 
-    display_usage(usage_out);
-
+    sudo_lbuf_init(&lbuf, help_out, indent, NULL, 80);
     sudo_lbuf_append(&lbuf, "%s", _("\nOptions:\n"));
     sudo_lbuf_append(&lbuf, "  -A, --askpass                 %s\n",
 	_("use a helper program for password prompting"));

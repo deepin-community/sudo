@@ -17,8 +17,8 @@
  */
 
 /*
- * Trivial replacements for the libc get{gr,pw}{uid,nam}() routines
- * for use by testsudoers in the sudo test harness.
+ * Trivial replacements for the libc getgrent() and getpwent() family
+ * of functions for use by testsudoers in the sudo test harness.
  * We need our own since many platforms don't provide set{pw,gr}file().
  */
 
@@ -30,6 +30,7 @@
 void testsudoers_setgrfile(const char *);
 void testsudoers_setgrent(void);
 void testsudoers_endgrent(void);
+int testsudoers_setgroupent(int);
 struct group *testsudoers_getgrent(void);
 struct group *testsudoers_getgrnam(const char *);
 struct group *testsudoers_getgrgid(gid_t);
@@ -37,6 +38,10 @@ struct group *testsudoers_getgrgid(gid_t);
 void testsudoers_setpwfile(const char *);
 void testsudoers_setpwent(void);
 void testsudoers_endpwent(void);
+int testsudoers_setpassent(int);
 struct passwd *testsudoers_getpwent(void);
 struct passwd *testsudoers_getpwnam(const char *);
 struct passwd *testsudoers_getpwuid(uid_t);
+
+int testsudoers_getgrouplist2_v1(const char *name, GETGROUPS_T basegid,
+    GETGROUPS_T **groupsp, int *ngroupsp);

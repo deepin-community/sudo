@@ -59,10 +59,16 @@
 # include "strlist.h"
 #endif
 
+struct parse_error {
+    STAILQ_ENTRY(parse_error) entries;
+    char *errstr;
+};
+STAILQ_HEAD(parse_error_list, parse_error);
+static struct parse_error_list parse_error_list =
+    STAILQ_HEAD_INITIALIZER(parse_error_list);
+
 static bool should_mail(int);
 static bool warned = false;
-
-extern struct policy_plugin sudoers_policy;	/* XXX */
 
 #ifdef SUDOERS_LOG_CLIENT
 /*
@@ -121,8 +127,7 @@ init_log_details(struct log_details *details, struct eventlog *evlog)
 }
 
 bool
-log_server_reject(struct eventlog *evlog, const char *message,
-    struct sudo_plugin_event * (*event_alloc)(void))
+log_server_reject(struct eventlog *evlog, const char *message)
 {
     bool ret = false;
     debug_decl(log_server_reject, SUDOERS_DEBUG_LOGGING);
@@ -152,7 +157,7 @@ log_server_reject(struct eventlog *evlog, const char *message,
 
 	/* Open connection to log server, send hello and reject messages. */
 	client_closure = log_server_open(&details, &sudo_user.submit_time,
-	    false, SEND_REJECT, message, event_alloc);
+	    false, SEND_REJECT, message);
 	if (client_closure != NULL) {
 	    client_closure_free(client_closure);
 	    client_closure = NULL;
@@ -169,8 +174,7 @@ done:
 
 bool
 log_server_alert(struct eventlog *evlog, struct timespec *now,
-    const char *message, const char *errstr,
-    struct sudo_plugin_event * (*event_alloc)(void))
+    const char *message, const char *errstr)
 {
     struct log_details details;
     char *emessage = NULL;
@@ -209,7 +213,7 @@ log_server_alert(struct eventlog *evlog, struct timespec *now,
 
 	/* Open connection to log server, send hello and alert messages. */
 	client_closure = log_server_open(&details, now, false,
-	    SEND_ALERT, emessage ? emessage : message, event_alloc);
+	    SEND_ALERT, emessage ? emessage : message);
 	if (client_closure != NULL) {
 	    client_closure_free(client_closure);
 	    client_closure = NULL;
@@ -226,16 +230,14 @@ done:
 }
 #else
 bool
-log_server_reject(struct eventlog *evlog, const char *message,
-    struct sudo_plugin_event * (*event_alloc)(void))
+log_server_reject(struct eventlog *evlog, const char *message)
 {
     return true;
 }
 
 bool
 log_server_alert(struct eventlog *evlog, struct timespec *now,
-    const char *message, const char *errstr,
-    struct sudo_plugin_event * (*event_alloc)(void))
+    const char *message, const char *errstr)
 {
     return true;
 }
@@ -250,7 +252,7 @@ log_reject(const char *message, bool logit, bool mailit)
     const char *uuid_str = NULL;
     struct eventlog evlog;
     int evl_flags = 0;
-    bool ret = true;
+    bool ret;
     debug_decl(log_reject, SUDOERS_DEBUG_LOGGING);
 
     if (!ISSET(sudo_mode, MODE_POLICY_INTERCEPTED))
@@ -261,11 +263,9 @@ log_reject(const char *message, bool logit, bool mailit)
 	if (!logit)
 	    SET(evl_flags, EVLOG_MAIL_ONLY);
     }
-    sudoers_to_eventlog(&evlog, NewArgv, env_get(), uuid_str);
-    if (!eventlog_reject(&evlog, evl_flags, message, NULL, NULL))
-	ret = false;
-
-    if (!log_server_reject(&evlog, message, sudoers_policy.event_alloc))
+    sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(), uuid_str);
+    ret = eventlog_reject(&evlog, evl_flags, message, NULL, NULL);
+    if (!log_server_reject(&evlog, message))
 	ret = false;
 
     debug_return_bool(ret);
@@ -322,9 +322,9 @@ log_denial(int status, bool inform_user)
 		"sudo on %s.\n"), user_name, user_srunhost);
 	} else {
 	    sudo_printf(SUDO_CONV_ERROR_MSG, _("Sorry, user %s is not allowed "
-		"to execute '%s%s%s' as %s%s%s on %s.\n"),
-		user_name, user_cmnd, user_args ? " " : "",
-		user_args ? user_args : "",
+		"to execute '%s%s%s%s' as %s%s%s on %s.\n"),
+		user_name, user_cmnd, list_cmnd ? list_cmnd : "",
+		user_args ? " " : "", user_args ? user_args : "",
 		list_pw ? list_pw->pw_name : runas_pw ?
 		runas_pw->pw_name : user_name, runas_gr ? ":" : "",
 		runas_gr ? runas_gr->gr_name : "", user_host);
@@ -348,12 +348,16 @@ log_failure(int status, int flags)
     debug_decl(log_failure, SUDOERS_DEBUG_LOGGING);
 
     /* The user doesn't always get to see the log message (path info). */
-    if (!ISSET(status, FLAG_NO_USER | FLAG_NO_HOST) && def_path_info &&
-	(flags == NOT_FOUND_DOT || flags == NOT_FOUND))
+    if (!ISSET(status, FLAG_NO_USER | FLAG_NO_HOST) && list_pw == NULL &&
+	    def_path_info && (flags == NOT_FOUND_DOT || flags == NOT_FOUND))
 	inform_user = false;
     ret = log_denial(status, inform_user);
 
     if (!inform_user) {
+	const char *cmnd = user_cmnd;
+	if (ISSET(sudo_mode, MODE_CHECK))
+	    cmnd = list_cmnd ? list_cmnd : NewArgv[1];
+
 	/*
 	 * We'd like to not leak path info at all here, but that can
 	 * *really* confuse the users.  To really close the leak we'd
@@ -362,9 +366,9 @@ log_failure(int status, int flags)
 	 * their path to just contain a single dir.
 	 */
 	if (flags == NOT_FOUND)
-	    sudo_warnx(U_("%s: command not found"), user_cmnd);
+	    sudo_warnx(U_("%s: command not found"), cmnd);
 	else if (flags == NOT_FOUND_DOT)
-	    sudo_warnx(U_("ignoring \"%s\" found in '.'\nUse \"sudo ./%s\" if this is the \"%s\" you wish to run."), user_cmnd, user_cmnd, user_cmnd);
+	    sudo_warnx(U_("ignoring \"%s\" found in '.'\nUse \"sudo ./%s\" if this is the \"%s\" you wish to run."), cmnd, cmnd, cmnd);
     }
 
     debug_return_bool(ret);
@@ -573,15 +577,15 @@ log_allowed(struct eventlog *evlog)
 }
 
 bool
-log_exit_status(int exit_status)
+log_exit_status(int status)
 {
     struct eventlog evlog;
     int evl_flags = 0;
-    int ecode = 0;
+    int exit_value = 0;
     int oldlocale;
     struct timespec run_time;
     char sigbuf[SIG2STR_MAX];
-    char *signame = NULL;
+    char *signal_name = NULL;
     bool dumped_core = false;
     bool ret = true;
     debug_decl(log_exit_status, SUDOERS_DEBUG_LOGGING);
@@ -594,17 +598,17 @@ log_exit_status(int exit_status)
 	}
 	sudo_timespecsub(&run_time, &sudo_user.submit_time, &run_time);
 
-        if (WIFEXITED(exit_status)) {
-	    ecode = WEXITSTATUS(exit_status);
-        } else if (WIFSIGNALED(exit_status)) {
-            int signo = WTERMSIG(exit_status);
+        if (WIFEXITED(status)) {
+	    exit_value = WEXITSTATUS(status);
+        } else if (WIFSIGNALED(status)) {
+            int signo = WTERMSIG(status);
             if (signo <= 0 || sig2str(signo, sigbuf) == -1)
                 (void)snprintf(sigbuf, sizeof(sigbuf), "%d", signo);
-	    signame = sigbuf;
-	    ecode = signo | 128;
-	    dumped_core = WCOREDUMP(exit_status);
+	    signal_name = sigbuf;
+	    exit_value = signo | 128;
+	    dumped_core = WCOREDUMP(status);
         } else {
-            sudo_warnx("invalid exit status 0x%x", exit_status);
+            sudo_warnx("invalid exit status 0x%x", status);
 	    ret = false;
 	    goto done;
         }
@@ -612,15 +616,16 @@ log_exit_status(int exit_status)
 	/* Log and mail messages should be in the sudoers locale. */
 	sudoers_setlocale(SUDOERS_LOCALE_SUDOERS, &oldlocale);
 
-	sudoers_to_eventlog(&evlog, NewArgv, env_get(), sudo_user.uuid_str);
+	sudoers_to_eventlog(&evlog, saved_cmnd, saved_argv, env_get(),
+	    sudo_user.uuid_str);
 	if (def_mail_always) {
 	    SET(evl_flags, EVLOG_MAIL);
 	    if (!def_log_exit_status)
 		SET(evl_flags, EVLOG_MAIL_ONLY);
 	}
 	evlog.run_time = run_time;
-	evlog.exit_value = ecode;
-	evlog.signal_name = signame;
+	evlog.exit_value = exit_value;
+	evlog.signal_name = signal_name;
 	evlog.dumped_core = dumped_core;
 	if (!eventlog_exit(&evlog, evl_flags))
 	    ret = false;
@@ -630,6 +635,24 @@ log_exit_status(int exit_status)
 
 done:
     debug_return_bool(ret);
+}
+
+/*
+ * Add message to the parse error journal, which takes ownership of it.
+ * The message will be freed once the journal is processed.
+ */
+static bool
+journal_parse_error(char *message)
+{
+    struct parse_error *pe;
+    debug_decl(journal_parse_error, SUDOERS_DEBUG_LOGGING);
+
+    pe = malloc(sizeof(*pe));
+    if (pe == NULL)
+	debug_return_bool(false);
+    pe->errstr = message;
+    STAILQ_INSERT_TAIL(&parse_error_list, pe, entries);
+    debug_return_bool(false);
 }
 
 /*
@@ -695,11 +718,29 @@ vlog_warning(int flags, int errnum, const char *fmt, va_list ap)
 	    if (ISSET(flags, SLOG_NO_LOG))
 		SET(evl_flags, EVLOG_MAIL_ONLY);
 	}
-	sudoers_to_eventlog(&evlog, NewArgv, env_get(), sudo_user.uuid_str);
-	eventlog_alert(&evlog, evl_flags, &now, message, errstr);
+	sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(),
+	    sudo_user.uuid_str);
+	if (!eventlog_alert(&evlog, evl_flags, &now, message, errstr))
+	    ret = false;
+	if (!log_server_alert(&evlog, &now, message, errstr))
+	    ret = false;
+    }
 
-	log_server_alert(&evlog, &now, message, errstr,
-	    sudoers_policy.event_alloc);
+    if (ISSET(flags, SLOG_PARSE_ERROR)) {
+	char *copy;
+
+	/* Journal parse error for later mailing. */
+	if (errstr != NULL) {
+	    if (asprintf(&copy, U_("%s: %s"), message, errstr) == -1)
+		copy = NULL;
+	} else {
+	    copy = strdup(message);
+	}
+	if (copy != NULL) {
+	    /* journal_parse_error() takes ownership of copy. */
+	    if (!journal_parse_error(copy))
+		ret = false;
+	}
     }
 
     /*
@@ -770,6 +811,112 @@ gai_log_warning(int flags, int errnum, const char *fmt, ...)
 }
 
 /*
+ * Send mail about accumulated parser errors.
+ * Frees the list of parse errors when done.
+ */
+bool
+mail_parse_errors(void)
+{
+    const int evl_flags = EVLOG_RAW;
+    struct parse_error *pe;
+    struct eventlog evlog;
+    char **errors = NULL;
+    struct timespec now;
+    bool ret = false;
+    size_t n;
+    debug_decl(mail_parse_errors, SUDOERS_DEBUG_LOGGING);
+
+    if (STAILQ_EMPTY(&parse_error_list))
+	debug_return_bool(true);
+
+    if (sudo_gettime_real(&now) == -1) {
+	sudo_warn("%s", U_("unable to get time of day"));
+	goto done;
+    }
+    sudoers_to_eventlog(&evlog, safe_cmnd, NewArgv, env_get(),
+	sudo_user.uuid_str);
+
+    /* Convert parse_error_list to a string vector. */
+    n = 0;
+    STAILQ_FOREACH(pe, &parse_error_list, entries) {
+	n++;
+    }
+    errors = reallocarray(NULL, n + 1, sizeof(char *));
+    if (errors == NULL) {
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	goto done;
+    }
+    n = 0;
+    STAILQ_FOREACH(pe, &parse_error_list, entries) {
+	errors[n++] = _(pe->errstr);
+    }
+    errors[n] = NULL;
+
+    ret = eventlog_mail(&evlog, evl_flags, &now, _("problem parsing sudoers"),
+	NULL, errors);
+
+done:
+    free(errors);
+    while ((pe = STAILQ_FIRST(&parse_error_list)) != NULL) {
+	STAILQ_REMOVE_HEAD(&parse_error_list, entries);
+	free(pe->errstr);
+	free(pe);
+    }
+    debug_return_bool(ret);
+}
+
+/*
+ * Log a parse error using log_warningx().
+ * Journals the message to be mailed after parsing is complete.
+ * Does not write the message to stderr.
+ */
+bool
+log_parse_error(const char *file, int line, int column, const char *fmt,
+    va_list args)
+{
+    const int flags = SLOG_RAW_MSG|SLOG_NO_STDERR;
+    char *message, *tofree = NULL;
+    const char *errstr;
+    bool ret;
+    int len;
+    debug_decl(log_parse_error, SUDOERS_DEBUG_LOGGING);
+
+    if (fmt == NULL) {
+	errstr = _("syntax error");
+    } else if (strcmp(fmt, "%s") == 0) {
+	/* Optimize common case, a single string. */
+	errstr = _(va_arg(args, char *));
+    } else {
+	if (vasprintf(&tofree, _(fmt), args) == -1)
+	    debug_return_bool(false);
+	errstr = tofree;
+    }
+
+    if (line > 0) {
+	ret = log_warningx(flags, N_("%s:%d:%d: %s"), file, line, column,
+	    errstr);
+    } else {
+	ret = log_warningx(flags, N_("%s: %s"), file, errstr);
+    }
+
+    /* Journal parse error for later mailing. */
+    if (line > 0) {
+	len = asprintf(&message, _("%s:%d:%d: %s"), file, line, column, errstr);
+    } else {
+	len = asprintf(&message, _("%s: %s"), file, errstr);
+    }
+    if (len != -1) {
+	journal_parse_error(message);
+    } else {
+	ret = false;
+    }
+
+    free(tofree);
+
+    debug_return_bool(ret);
+}
+
+/*
  * Determine whether we should send mail based on "status" and defaults options.
  */
 static bool
@@ -792,8 +939,8 @@ should_mail(int status)
  * The values in the resulting eventlog struct should not be freed.
  */
 void
-sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
-    char * const envp[], const char *uuid_str)
+sudoers_to_eventlog(struct eventlog *evlog, const char *cmnd,
+    char * const argv[], char * const envp[], const char *uuid_str)
 {
     struct group *grp;
     debug_decl(sudoers_to_eventlog, SUDOERS_DEBUG_LOGGING);
@@ -805,7 +952,7 @@ sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
     memset(evlog, 0, sizeof(*evlog));
     evlog->iolog_file = sudo_user.iolog_file;
     evlog->iolog_path = sudo_user.iolog_path;
-    evlog->command = safe_cmnd ? safe_cmnd : (argv ? argv[0] : NULL);
+    evlog->command = cmnd ? (char *)cmnd : (argv ? argv[0] : NULL);
     evlog->cwd = user_cwd;
     if (def_runchroot != NULL && strcmp(def_runchroot, "*") != 0) {
 	evlog->runchroot = def_runchroot;
@@ -862,11 +1009,11 @@ sudoers_to_eventlog(struct eventlog *evlog, char * const argv[],
 static FILE *
 sudoers_log_open(int type, const char *log_file)
 {
+    const char *omode;
     bool uid_changed;
     FILE *fp = NULL;
     mode_t oldmask;
     int fd, flags;
-    char *omode;
     debug_decl(sudoers_log_open, SUDOERS_DEBUG_LOGGING);
 
     switch (type) {

@@ -61,12 +61,12 @@ enum sudoers_formats {
  * Function Prototypes
  */
 static void dump_sudoers(struct sudo_lbuf *lbuf);
-static void usage(void) __attribute__((__noreturn__));
 static void set_runaspw(const char *);
 static void set_runasgr(const char *);
-static bool cb_runas_default(const union sudo_defs_val *, int);
+static bool cb_runas_default(const char *file, int line, int column, const union sudo_defs_val *, int);
 static int testsudoers_error(const char *msg);
 static int testsudoers_output(const char *buf);
+sudo_noreturn static void usage(void);
 
 /* testsudoers_pwutil.c */
 extern struct cache_item *testsudoers_make_gritem(gid_t gid, const char *group);
@@ -82,6 +82,7 @@ extern int (*trace_print)(const char *msg);
  */
 struct sudo_user sudo_user;
 struct passwd *list_pw;
+static const char *orig_cmnd;
 static char *runas_group, *runas_user;
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
@@ -96,6 +97,7 @@ sudo_dso_public int main(int argc, char *argv[]);
 int
 main(int argc, char *argv[])
 {
+    struct sudoers_parser_config sudoers_conf = SUDOERS_PARSER_CONFIG_INITIALIZER;
     enum sudoers_formats input_format = format_sudoers;
     struct cmndspec *cs;
     struct privilege *priv;
@@ -105,6 +107,7 @@ main(int argc, char *argv[])
     int match, host_match, runas_match, cmnd_match;
     int ch, dflag, exitcode = EXIT_FAILURE;
     struct sudo_lbuf lbuf;
+    id_t id;
     debug_decl(main, SUDOERS_DEBUG_MAIN);
 
 #if defined(SUDO_DEVEL) && defined(__OpenBSD__)
@@ -139,9 +142,10 @@ main(int argc, char *argv[])
 		dflag = 1;
 		break;
 	    case 'G':
-		sudoers_gid = (gid_t)sudo_strtoid(optarg, &errstr);
+		id = sudo_strtoid(optarg, &errstr);
 		if (errstr != NULL)
 		    sudo_fatalx("group-ID %s: %s", optarg, errstr);
+		sudoers_conf.sudoers_gid = (gid_t)id;
 		break;
 	    case 'g':
 		runas_group = optarg;
@@ -170,9 +174,10 @@ main(int argc, char *argv[])
 		trace_print = testsudoers_error;
 		break;
 	    case 'U':
-		sudoers_uid = (uid_t)sudo_strtoid(optarg, &errstr);
+		id = sudo_strtoid(optarg, &errstr);
 		if (errstr != NULL)
 		    sudo_fatalx("user-ID %s: %s", optarg, errstr);
+		sudoers_conf.sudoers_uid = (uid_t)id;
 		break;
 	    case 'u':
 		runas_user = optarg;
@@ -202,15 +207,19 @@ main(int argc, char *argv[])
     if (argc < 2) {
 	if (!dflag)
 	    usage();
-	user_name = argc ? *argv++ : "root";
-	user_cmnd = user_base = "true";
+	user_name = argc ? *argv++ : (char *)"root";
+	orig_cmnd = "true";
 	argc = 0;
     } else {
 	user_name = *argv++;
-	user_cmnd = *argv++;
-	user_base = sudo_basename(user_cmnd);
+	orig_cmnd = *argv++;
 	argc -= 2;
     }
+    user_cmnd = strdup(orig_cmnd);
+    if (user_cmnd == NULL)
+	sudo_fatalx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+    user_base = sudo_basename(user_cmnd);
+
     if ((sudo_user.pw = sudo_getpwnam(user_name)) == NULL)
 	sudo_fatalx(U_("unknown user %s"), user_name);
 
@@ -268,8 +277,10 @@ main(int argc, char *argv[])
 	    sudo_fatal("%s", U_("unable to parse network address list"));
     }
 
-    /* Allocate space for data structures in the parser. */
-    init_parser("sudoers", false, true);
+    /* Initialize the parser and set sudoers filename to "sudoers". */
+    sudoers_conf.strict = true;
+    sudoers_conf.verbose = 2;
+    init_parser("sudoers", &sudoers_conf);
 
     /*
      * Set runas passwd/group entries based on command line or sudoers.
@@ -292,17 +303,17 @@ main(int argc, char *argv[])
 	}
         break;
     case format_sudoers:
-	if (sudoersparse() != 0 || parse_error)
+	if (sudoersparse() != 0)
 	    parse_error = true;
         break;
     default:
         sudo_fatalx("error: unhandled input %d", input_format);
     }
+    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
+	parse_error = true;
+
     if (!parse_error)
 	(void) puts("Parses OK");
-
-    if (!update_defaults(&parsed_policy, NULL, SETDEF_ALL, false))
-	(void) puts("Problem with defaults entries");
 
     if (dflag) {
 	(void) putchar('\n');
@@ -415,7 +426,8 @@ set_runasgr(const char *group)
  * Callback for runas_default sudoers setting.
  */
 static bool
-cb_runas_default(const union sudo_defs_val *sd_un, int op)
+cb_runas_default(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     /* Only reset runaspw if user didn't specify one. */
     if (!runas_user && !runas_group)
@@ -436,39 +448,47 @@ sudo_endspent(void)
 }
 
 FILE *
-open_sudoers(const char *file, bool doedit, bool *keepopen)
+open_sudoers(const char *file, char **outfile, bool doedit, bool *keepopen)
 {
     struct stat sb;
     FILE *fp = NULL;
     const char *base;
+    int error, fd;
     debug_decl(open_sudoers, SUDOERS_DEBUG_UTIL);
 
     /* Report errors using the basename for consistent test output. */
     base = sudo_basename(file);
-    switch (sudo_secure_file(file, sudoers_uid, sudoers_gid, &sb)) {
-	case SUDO_PATH_SECURE:
-	    fp = fopen(file, "r");
-	    break;
+    fd = sudo_secure_open_file(file, sudoers_file_uid(), sudoers_file_gid(),
+	&sb, &error);
+    if (fd != -1) {
+	if ((fp = fdopen(fd, "r")) == NULL) {
+	    sudo_warn("unable to open %s", base);
+	    close(fd);
+	}
+    } else {
+	switch (error) {
 	case SUDO_PATH_MISSING:
-	    sudo_warn("unable to stat %s", base);
+	    sudo_warn("unable to open %s", base);
 	    break;
 	case SUDO_PATH_BAD_TYPE:
 	    sudo_warnx("%s is not a regular file", base);
 	    break;
 	case SUDO_PATH_WRONG_OWNER:
 	    sudo_warnx("%s should be owned by uid %u",
-		base, (unsigned int) sudoers_uid);
+		base, (unsigned int) sudoers_file_uid());
 	    break;
 	case SUDO_PATH_WORLD_WRITABLE:
 	    sudo_warnx("%s is world writable", base);
 	    break;
 	case SUDO_PATH_GROUP_WRITABLE:
 	    sudo_warnx("%s should be owned by gid %u",
-		base, (unsigned int) sudoers_gid);
+		base, (unsigned int) sudoers_file_gid());
 	    break;
 	default:
-	    /* NOTREACHED */
+	    sudo_warnx("%s: internal error, unexpected error %d",
+		__func__, error);
 	    break;
+	}
     }
 
     debug_return_ptr(fp);
@@ -498,11 +518,28 @@ init_eventlog_config(void)
     return;
 }
 
+bool
+pivot_root(const char *new_root, int fds[2])
+{
+    return true;
+}
+
+bool
+unpivot_root(int fds[2])
+{
+    return true;
+}
+
 int
 set_cmnd_path(const char *runchroot)
 {
-    /* Cannot return FOUND without also setting user_cmnd to a new value. */
-    return NOT_FOUND;
+    /* Reallocate user_cmnd to catch bugs in command_matches(). */
+    char *new_cmnd = strdup(orig_cmnd);
+    if (new_cmnd == NULL)
+	return NOT_FOUND_ERROR;
+    free(user_cmnd);
+    user_cmnd = new_cmnd;
+    return FOUND;
 }
 
 static bool

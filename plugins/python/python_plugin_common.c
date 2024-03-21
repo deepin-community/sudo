@@ -42,7 +42,7 @@ static size_t python_inittab_copy_len = 0;
 # define Py_FinalizeEx()	(Py_Finalize(), 0)
 #endif
 
-const char *
+static const char *
 _lookup_value(char * const keyvalues[], const char *key)
 {
     debug_decl(_lookup_value, PYTHON_DEBUG_INTERNAL);
@@ -101,7 +101,7 @@ _import_module(const char *path)
     if (strlcpy(path_copy, path, sizeof(path_copy)) >= sizeof(path_copy))
         debug_return_ptr(NULL);
 
-    char *module_dir = path_copy;
+    const char *module_dir = path_copy;
     char *module_name = strrchr(path_copy, '/');
     if (module_name == NULL) {
         module_name = path_copy;
@@ -190,7 +190,7 @@ _restore_inittab(void)
     debug_return;
 }
 
-void
+static void
 python_plugin_handle_plugin_error_exception(PyObject **py_result, struct PluginContext *plugin_ctx)
 {
     debug_decl(python_plugin_handle_plugin_error_exception, PYTHON_DEBUG_INTERNAL);
@@ -309,7 +309,6 @@ python_plugin_construct(struct PluginContext *plugin_ctx, unsigned int version,
 
     if (py_kwargs == NULL) {
         py_log_last_error("Failed to construct plugin instance");
-        rc = SUDO_RC_ERROR;
     } else {
         rc = python_plugin_construct_custom(plugin_ctx, py_kwargs);
     }
@@ -396,7 +395,7 @@ _python_plugin_register_plugin_in_py_ctx(void)
     debug_return_int(SUDO_RC_OK);
 }
 
-int
+static int
 _python_plugin_set_path(struct PluginContext *plugin_ctx, const char *path)
 {
     if (path == NULL) {
@@ -518,10 +517,6 @@ python_plugin_init(struct PluginContext *plugin_ctx, char * const plugin_options
         goto cleanup;
     }
     PyThreadState_Swap(plugin_ctx->py_interpreter);
-
-    if (!sudo_conf_developer_mode() && sudo_module_register_importblocker() < 0) {
-        goto cleanup;
-    }
 
     if (sudo_module_set_default_loghandler() < 0)
         goto cleanup;
@@ -736,8 +731,9 @@ python_plugin_unlink(void)
     if (Py_IsInitialized()) {
         sudo_debug_printf(SUDO_DEBUG_NOTICE, "Closing: deinit python %zu subinterpreters\n",
                           py_ctx.interpreter_count);
-        for (size_t i = 0; i < py_ctx.interpreter_count; ++i) {
-            PyThreadState *py_interpreter = py_ctx.py_subinterpreters[i];
+	while (py_ctx.interpreter_count != 0) {
+            PyThreadState *py_interpreter =
+		py_ctx.py_subinterpreters[--py_ctx.interpreter_count];
             PyThreadState_Swap(py_interpreter);
             Py_EndInterpreter(py_interpreter);
         }

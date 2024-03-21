@@ -59,15 +59,22 @@
 ## Uncomment to use a hard-coded PATH instead of the user's to find commands
 # Defaults secure_path="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 ##
+## Uncomment to restore the historic behavior where a command is run in
+## the user's own terminal.
+# Defaults !use_pty
+##
 ## Uncomment to send mail if the user does not enter the correct password.
 # Defaults mail_badpass
 ##
 ## Uncomment to enable logging of a command's output, except for
 ## sudoreplay and reboot.  Use sudoreplay to play back logged sessions.
+## Sudo will create up to 2,176,782,336 I/O logs before recycling them.
+## Set maxseq to a smaller number if you don't have unlimited disk space.
 # Defaults log_output
 # Defaults!/usr/bin/sudoreplay !log_output
 # Defaults!/usr/local/bin/sudoreplay !log_output
 # Defaults!REBOOT !log_output
+# Defaults maxseq = 1000
 
 ##
 ## Runas alias specification

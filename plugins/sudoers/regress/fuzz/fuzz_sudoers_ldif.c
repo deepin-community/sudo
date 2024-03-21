@@ -29,6 +29,7 @@
 #include "sudoers.h"
 
 static int fuzz_printf(int msg_type, const char *fmt, ...);
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 /* Required to link with parser. */
 struct sudo_user sudo_user;
@@ -36,7 +37,7 @@ struct passwd *list_pw;
 sudo_printf_t sudo_printf = fuzz_printf;
 
 FILE *
-open_sudoers(const char *file, bool doedit, bool *keepopen)
+open_sudoers(const char *file, char **outfile, bool doedit, bool *keepopen)
 {
     /*
      * If we allow the fuzzer to choose include paths it will
@@ -131,15 +132,15 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (fp == NULL)
         return 0;
 
-    setprogname("fuzz_sudoers_ldif");
+    initprogname("fuzz_sudoers_ldif");
     sudoers_debug_register(getprogname(), NULL);
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 
     /* Initialize defaults and parse LDIF-format sudoers. */
     init_defaults();
-    init_parse_tree(&parse_tree, NULL, NULL);
-    sudoers_parse_ldif(&parse_tree, fp, NULL, true);
+    init_parse_tree(&parse_tree, NULL, NULL, NULL);
+    sudoers_parse_ldif(&parse_tree, fp, "ou=SUDOers,dc=sudo,dc=ws", true);
 
     /* Cleanup. */
     free_parse_tree(&parse_tree);

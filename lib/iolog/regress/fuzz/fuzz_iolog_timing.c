@@ -41,6 +41,8 @@
 #include "sudo_plugin.h"
 #include "sudo_util.h"
 
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
 static int
 fuzz_conversation(int num_msgs, const struct sudo_conv_message msgs[],
     struct sudo_conv_reply replies[], struct sudo_conv_callback *callback)
@@ -75,7 +77,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     char logdir[] = "/tmp/timing.XXXXXX";
     int dfd = -1, fd = -1;
 
-    setprogname("fuzz_iolog_timing");
+    initprogname("fuzz_iolog_timing");
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 

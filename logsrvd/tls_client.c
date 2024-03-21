@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <errno.h>
 #ifdef HAVE_STDBOOL_H
@@ -153,7 +158,8 @@ tls_connect_cb(int sock, int what, void *v)
 		goto bad;
             default:
 		errstr = ERR_reason_error_string(ERR_get_error());
-                sudo_warnx(U_("TLS connection failed: %s"), errstr);
+                sudo_warnx(U_("TLS connection failed: %s"),
+		    errstr ? errstr : strerror(errno));
                 goto bad;
         }
     }
@@ -187,21 +193,22 @@ tls_ctx_client_setup(SSL_CTX *ssl_ctx, int sock,
 
     if ((closure->ssl = SSL_new(ssl_ctx)) == NULL) {
 	errstr = ERR_reason_error_string(ERR_get_error());
-        sudo_warnx(U_("unable to allocate ssl object: %s"), errstr);
+        sudo_warnx(U_("unable to allocate ssl object: %s"),
+	    errstr ? errstr : strerror(errno));
         goto done;
     }
 
     if (SSL_set_ex_data(closure->ssl, 1, closure->peer_name) <= 0) {
 	errstr = ERR_reason_error_string(ERR_get_error());
 	sudo_warnx(U_("Unable to attach user data to the ssl object: %s"),
-	    errstr);
+	    errstr ? errstr : strerror(errno));
 	goto done;
     }
 
     if (SSL_set_fd(closure->ssl, sock) <= 0) {
 	errstr = ERR_reason_error_string(ERR_get_error());
         sudo_warnx(U_("Unable to attach socket to the ssl object: %s"),
-	    errstr);
+	    errstr ? errstr : strerror(errno));
         goto done;
     }
 
@@ -228,7 +235,7 @@ tls_client_setup(int sock, const char *ca_bundle_file, const char *cert_file,
     ssl_ctx = init_tls_context(ca_bundle_file, cert_file, key_file,
 	dhparam_file, ciphers_v12, ciphers_v13, verify_server);
     if (ssl_ctx == NULL) {
-        sudo_warnx(U_("unable to initialize TLS context"));
+        sudo_warnx("%s", U_("unable to initialize TLS context"));
 	debug_return_bool(false);
     }
 

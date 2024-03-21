@@ -1,3 +1,530 @@
+What's new in Sudo 1.9.14p2
+
+ * Fixed a crash on Linux systems introduced in version 1.9.14 when
+   running a command with a NULL argv[0] if "log_subcmds" or
+   "intercept" is enabled in sudoers.
+
+ * Fixed a problem with "stair-stepped" output when piping or
+   redirecting the output of a sudo command that takes user input.
+
+ * Fixed a bug introduced in sudo 1.9.14 that affects matching
+   sudoers rules containing a Runas_Spec with an empty Runas user.
+   These rules should only match when sudo's -g option is used but
+   were matching even without the -g option.  GitHub issue #290.
+
+What's new in Sudo 1.9.14p1
+
+ * Fixed an invalid free bug in sudo_logsrvd that was introduced
+   in version 1.9.14 which could cause sudo_logsrvd to crash.
+
+ * The sudoers plugin no longer tries to send the terminal name
+   to the log server when no terminal is present.  This bug was
+   introduced in version 1.9.14.
+
+What's new in Sudo 1.9.14
+
+ * Fixed a bug where if the "intercept" or "log_subcmds" sudoers
+   option was enabled and a sub-command was run where the first
+   entry of the argument vector didn't match the command being run.
+   This resulted in commands like "sudo su -" being killed due to
+   the mismatch.  Bug #1050.
+
+ * The sudoers plugin now canonicalizes command path names before
+   matching (where possible).  This fixes a bug where sudo could
+   execute the wrong path if there are multiple symbolic links with
+   the same target and the same base name in sudoers that a user is
+   allowed to run.  GitHub issue #228.
+
+ * Improved command matching when a chroot is specified in sudoers.
+   The sudoers plugin will now change the root directory id needed
+   before performing command matching.  Previously, the root directory
+   was simply prepended to the path that was being processed.
+ 
+ * When NETGROUP_BASE is set in the ldap.conf file, sudo will now
+   perform its own netgroup lookups of the host name instead of
+   using the system innetgr(3) function.  This guarantees that user
+   and host netgroup lookups are performed using  the same LDAP
+   server (or servers).
+
+ * Fixed a bug introduced in sudo 1.9.13 that resulted in a missing
+   " ; " separator between environment variables and the command
+   in log entries.
+   
+ * The visudo utility now displays a warning when it ignores a file
+   in an include dir such as /etc/sudoers.d.
+
+ * When running a command in a pseudo-terminal, sudo will initialize
+   the terminal settings even if it is the background process.
+   Previously, sudo only initialized the pseudo-terminal when running
+   in the foreground.  This fixes an issue where a program that
+   checks the window size would read the wrong value when sudo was
+   running in the background.
+
+ * Fixed a bug where only the first two digits of the TSID field
+   being was logged.  Bug #1046.
+
+ * The "log_pty" sudoers option is now enabled by default.  To
+   restore the historic behavior where a command is run in the
+   user's terminal, add "Defaults !use_pty" to the sudoers file.
+   GitHub issue #258.
+
+ * Sudo's "-b" option now works when the command is run in a
+   pseudo-terminal.
+
+ * When disabling core dumps, sudo now only modifies the soft limit
+   and leaves the hard limit as-is.  This avoids problems on Linux
+   when sudo does not have CAP_SYS_RESOURCE, which may be the case
+   when run inside a container.  GitHub issue #42.
+
+ * Sudo configuration file paths have been converted to colon-separated
+   lists of paths.  This makes it possible to have configuration
+   files on a read-only file system while still allowing for local
+   modifications in a different (writable) directory.  The new
+   --enable-adminconf configure option can be used to specify a
+   directory that is searched for configuration files in preference
+   to the sysconfdir (which is usually /etc).
+
+ * The "intercept_verify" sudoers option is now only applied when
+   the "intercept" option is set in sudoers.  Previously, it was
+   also applied when "log_subcmds" was enabled.
+
+ * The NETGROUP_QUERY ldap.conf parameter can now be disabled for
+   LDAP servers that do not support querying the nisNetgroup object
+   by its nisNetgroupTriple attribute, while still allowing sudo to
+   query the LDAP server directly to determine netgroup membership.
+
+ * Fixed a long-standing bug where a sudoers rule without an explicit
+   runas list allowed the user to run a command as root and any
+   group instead of just one of the groups that root is a member
+   of.  For example, a rule such as "myuser ALL = ALL" would permit
+   "sudo -u root -g othergroup" even if root did not belong to
+   "othergroup".
+
+ * Fixed a bug where a sudoers rule with an explicit runas list
+   allowed a user to run sudo commands as themselves.  For example,
+   a rule such as "myuser ALL = (root) ALL", "myuser" should only
+   allow commands to be run as root (optionally using one of root's
+   groups).  However, the rule also allowed the user to run
+   "sudo -u myuser -g myuser command".
+
+ * Fixed a bug that prevented the user from specifying a group on
+   the command line via "sudo -g" if the rule's Runas_Spec contained
+   a Runas_Alias.
+
+ * Sudo now requires a C compiler that conforms to ISO C99 or higher
+   to build.
+
+What's new in Sudo 1.9.13p3
+
+ * Fixed a bug introduced in sudo 1.9.13 that caused a syntax error
+   when "list" was used as a user or host name.  GitHub issue #246.
+
+ * Fixed a bug that could cause sudo to hang when running a command
+   in a pseudo-terminal when there is still input buffered after a
+   command has exited.
+
+ * Fixed "sudo -U otheruser -l command".  This is a regression in
+   sudo 1.9.13.  GitHub issue #248.
+
+ * Fixed "sudo -l command args" when matching a command in sudoers
+   with command line arguments.  This is a regression in sudo 1.9.13.
+   GitHub issue #249.
+
+What's new in Sudo 1.9.13p2
+
+ * Fixed the --enable-static-sudoers option, broken in sudo 1.9.13.
+   GitHub issue #245.
+
+ * Fixed a potential double-free bug when matching a sudoers rule
+   that contains a per-command chroot directive (CHROOT=dir).  This
+   bug was introduced in sudo 1.9.8.
+
+What's new in Sudo 1.9.13p1
+
+ * Fixed a typo in the configure script that resulted in a line
+   like "]: command not found" in the output.  GitHub issue #238.
+
+ * Corrected the order of the C23 [[noreturn]] attribute in function
+   prototypes.  This fixes a build error with GCC 13.  GitHub issue
+   #239.
+
+ * The "check" make target misbehaved when there was more than
+   one version of the UTF-8 C locale in the output of "locale -a".
+   GitHub issue #241.
+
+ * Removed a dependency on the AC_SYS_YEAR2038 macro in configure.ac.
+   This was added in autoconf 2.72 but sudo's configure.ac only
+   required autoconf 2.70.
+
+ * Relaxed the autoconf version requirement to version 2.69.
+
+What's new in Sudo 1.9.13
+
+ * Fixed a bug running relative commands via sudo when "log_subcmds"
+   is enabled.  GitHub issue #194.
+
+ * Fixed a signal handling bug when running sudo commands in a shell
+   script.  Signals were not being forwarded to the command when
+   the sudo process was not run in its own process group.
+
+ * Fixed a bug in cvtsudoers' LDIF parsing when the file ends without
+   a newline and a backslash is the last character of the file.
+
+ * Fixed a potential use-after-free bug with cvtsudoers filtering.
+   GitHub issue #198.
+
+ * Added a reminder to the default lecture that the password will
+   not echo. This line is only displayed when the pwfeedback option
+   is disabled. GitHub issue #195.
+
+ * Fixed potential memory leaks in error paths.  GitHub issues #199,
+   #202.
+
+ * Fixed potential NULL dereferences on memory allocation failure.
+   GitHub issues #204, #211.
+
+ * Sudo now uses C23-style attributes in function prototypes instead
+   of gcc-style attributes if supported.
+
+ * Added a new "list" pseudo-command in sudoers to allow a user to
+   list another user's privileges.  Previously, only root or a user
+   with the ability to run any command as either root or the target
+   user on the current host could use the -U option.  This also
+   includes a fix to the log entry when a user lacks permission to
+   run "sudo -U otheruser -l command".  Previously, the logs would
+   indicate that the user tried to run the actual command, now the
+   log entry includes the list operation.
+
+ * JSON logging now escapes control characters if they happen to
+   appear in the command or environment.
+
+ * New Albanian translation from translationproject.org.
+
+ * Regular expressions in sudoers or logsrvd.conf may no longer
+   contain consecutive repetition operators.  This is implementation-
+   specific behavior according to POSIX, but some implementations
+   will allocate excessive amounts of memory.  This mainly affects
+   the fuzzers.
+
+ * Sudo now builds AIX-style shared libraries and dynamic shared
+   objects by default instead of svr4-style. This means that the
+   default sudo plugins are now .a (archive) files that contain a
+   .so shared object file instead of bare .so files.  This was done
+   to improve compatibility with the AIX Freeware ecosystem,
+   specifically, the AIX Freeware build of OpenSSL.  Sudo will still
+   load svr4-style .so plugins and if a .so file is requested,
+   either via sudo.conf or the sudoers file, and only the .a file
+   is present, sudo will convert the path from plugin.so to
+   plugin.a(plugin.so) when loading it.  This ensures compatibility
+   with existing configurations.  To restore the old, pre-1.9.13
+   behavior, run configure using the --with-aix-soname=svr4 option.
+
+ * Sudo no longer checks the ownership and mode of the plugins that
+   it loads.  Plugins are configured via either the sudo.conf or
+   sudoers file which are trusted configuration files.  These checks
+   suffered from time-of-check vs. time-of-use race conditions and
+   complicate loading plugins that are not simple paths.  Ownership
+   and mode checks are still performed when loading the sudo.conf
+   and sudoers files, which do not suffer from race conditions.
+   The sudo.conf "developer_mode" setting is no longer used.
+
+ * Control characters in sudo log messages and "sudoreplay -l"
+   output are now escaped in octal format.  Space characters in the
+   command path are also escaped.  Command line arguments that
+   contain spaces are surrounded by single quotes and any literal
+   single quote or backslash characters are escaped with a backslash.
+   This makes it possible to distinguish multiple command line
+   arguments from a single argument that contains spaces.
+
+ * Improved support for DragonFly BSD which uses a different struct
+   procinfo than either FreeBSD or 4.4BSD.
+
+ * Fixed a compilation error on Linux arm systems running older
+   kernels that may not define EM_ARM in linux/elf-em.h.
+   GitHub issue #232.
+
+ * Fixed a compilation error when LDFLAGS contains -Wl,--no-undefined.
+   Sudo will now link using -Wl,--no-undefined by default if possible.
+   GitHub issue #234.
+
+ * Fixed a bug executing a command with a very long argument vector
+   when "log_subcmds" or "intercept" is enabled on a system where
+   "intercept_type" is set to "trace".  GitHub issue #194.
+
+ * When sudo is configured to run a command in a pseudo-terminal
+   but the standard input is not connected to a terminal, the command
+   will now be run as a background process.  This works around a
+   problem running sudo commands in the background from a shell
+   script where changing the terminal to raw mode could interfere
+   with the interactive shell that ran the script.
+   GitHub issue #237.
+
+ * A missing include file in sudoers is no longer a fatal error
+   unless the error_recovery plugin argument has been set to false.
+
+What's new in Sudo 1.9.12p2
+
+ * Fixed a compilation error on Linux/aarch64.  GitHub issue #197.
+
+ * Fixed a potential crash introduced in the fix for GitHub issue #134.
+   If a user's sudoers entry did not have any RunAs user's set,
+   running "sudo -U otheruser -l" would dereference a NULL pointer.
+
+ * Fixed a bug introduced in sudo 1.9.12 that could prevent sudo
+   from creating a I/O files when the "iolog_file" sudoers setting
+   contains six or more Xs.
+
+ * Fixed a compilation issue on AIX with the native compiler.
+   GitHub issue #231.
+
+ * Fixed CVE-2023-22809, a flaw in sudo's -e option (aka sudoedit)
+   that could allow a malicious user with sudoedit privileges to
+   edit arbitrary files.
+
+What's new in Sudo 1.9.12p1
+
+ * Sudo's configure script now does a better job of detecting when
+   the -fstack-clash-protection compiler option does not work.
+   GitHub issue #191.
+
+ * Fixed CVE-2022-43995, a potential out-of-bounds write for passwords
+   smaller than 8 characters when passwd authentication is enabled.
+   This does not affect configurations that use other authentication
+   methods such as PAM, AIX authentication or BSD authentication.
+
+ * Fixed a build error with some configurations compiling host_port.c.
+
+What's new in Sudo 1.9.12
+
+ * Fixed a bug in the ptrace-based intercept mode where the current
+   working directory could include garbage at the end.
+
+ * Fixed a compilation error on systems that lack the stdint.h
+   header.  Bug #1035
+
+ * Fixed a bug when logging the command's exit status in intercept
+   mode.  The wrong command could be logged with the exit status.
+
+ * For ptrace-based intercept mode, sudo will now attempt to
+   verify that the command path name, arguments and environment
+   have not changed from the time when they were authorized by the
+   security policy.  The new "intercept_verify" sudoers setting can
+   be used to control this behavior.
+
+ * Fixed running commands with a relative path (e.g. ./foo) in
+   intercept mode.  Previously, this would fail if sudo's current
+   working directory was different from that of the command.
+
+ * Sudo now supports passing the execve(2) system call the NULL
+   pointer for the `argv` and/or `envp` arguments when in intercept
+   mode.  Linux treats a NULL pointer like an empty array.
+
+ * The sudoers LDAP schema now allows sudoUser, sudoRunasUser and
+   sudoRunasGroup to include UTF-8 characters, not just 7-bit ASCII.
+
+ * Fixed a problem with "sudo -i" on SELinux when the target user's
+   home directory is not searchable by sudo.  GitHub issue #160.
+
+ * Neovim has been added to the list of visudo editors that support
+   passing the line number on the command line.
+
+ * Fixed a bug in sudo's SHA384 and SHA512 message digest padding.
+
+ * Added a new "-N" (--no-update) command line option to sudo which
+   can be used to prevent sudo from updating the user's cached
+   credentials.  It is now possible to determine whether or not a
+   user's cached credentials are currently valid by running:
+
+	$ sudo -Nnv
+
+   and checking the exit value.  One use case for this is to indicate
+   in a shell prompt that sudo is "active" for the user.
+
+ * PAM approval modules are no longer invoked when running sub-commands
+   in intercept mode unless the "intercept_authenticate" option is set.
+   There is a substantial performance penalty for calling into PAM
+   for each command run.  PAM approval modules are still called for
+   the initial command.
+
+ * Intercept mode on Linux now uses process_vm_readv(2) and
+   process_vm_writev(2) if available.
+
+ * The XDG_CURRENT_DESKTOP environment variable is now preserved
+   by default.  This makes it possible for graphical applications
+   to choose the correct theme when run via sudo.
+
+ * On 64-bit systems, if sudo fails to load a sudoers group plugin,
+   it will use system-specific heuristics to try to locate a 64-bit
+   version of the plugin.
+
+ * The cvtsudoers manual now documents the JSON and CSV output
+   formats.  GitHub issue #172.
+
+ * Fixed a bug where sub-commands were not being logged to a remote
+   log server when log_subcmds was enabled.  GitHub issue #174.
+
+ * The new log_stdin, log_stdout, log_stderr, log_ttyin, and log_ttyout
+   sudoers settings can be used to support more fine-grained I/O logging.
+   The sudo front-end no longer allocates a pseudo-terminal when running
+   a command if the I/O logging plugin requests logging of stdin, stdout,
+   or stderr but not terminal input/output.
+
+ * Quieted a libgcrypt run-time initialization warning.
+   This fixes Debian bug #1019428 and Ubuntu bug #1397663.
+
+ * Fixed a bug in visudo that caused literal backslashes to be removed
+   from the EDITOR environment variable.  GitHub issue #179.
+
+ * The sudo Python plugin now implements the "find_spec" method instead
+   of the the deprecated "find_module".  This fixes a test failure when
+   a newer version of setuptools that doesn't include "find_module" is
+   found on the system.
+
+ * Fixed a bug introduced in sudo 1.9.9 where sudo_logsrvd created
+   the process ID file, usually /var/run/sudo/sudo_logsrvd.pid, as
+   a directory instead of a plain file.  The same bug could result
+   in I/O log directories that end in six or more X's being created
+   literally in addition to the name being used as a template for
+   the mkdtemp(3) function.
+
+ * Fixed a long-standing bug where a sudoers rule with a command
+   line argument of "", which indicates the command may be run with
+   no arguments, would also match a literal "" on the command line.
+   GitHub issue #182.
+
+ * Added the -I option to visudo which only edits the main sudoers
+   file.  Include files are not edited unless a syntax error is found.
+
+ * Fixed "sudo -l -U otheruser" output when the runas list is empty.
+   Previously, sudo would list the invoking user instead of the
+   list user.  GitHub issue #183.
+
+ * Fixed the display of command tags and options in "sudo -l" output
+   when the RunAs user or group changes.  A new line is started for
+   RunAs changes which means we need to display the command tags
+   and options again.  GitHub issue #184.
+
+ * The sesh helper program now uses getopt_long(3) to parse the
+   command line options.
+
+ * The embedded copy of zlib has been updated to version 1.2.13.
+
+ * Fixed a bug that prevented event log data from being sent to the
+   log server when I/O logging was not enabled.  This only affected
+   systems without PAM or configurations where the pam_session and
+   pam_setcred options were disabled in the sudoers file.
+
+ * Fixed a bug where "sudo -l" output included a carriage return
+   after the newline.  This is only needed when displaying to a
+   terminal in raw mode.  Bug #1042.
+
+What's new in Sudo 1.9.11p3
+
+ * Fixed "connection reset" errors on AIX when running shell scripts
+   with the "intercept" or "log_subcmds" sudoers options enabled.
+   Bug #1034.
+
+ * Fixed very slow execution of shell scripts when the "intercept"
+   or "log_subcmds" sudoers options are set on systems that enable
+   Nagle's algorithm on the loopback device, such as AIX.
+   Bug #1034.
+
+What's new in Sudo 1.9.11p2
+
+ * Fixed a compilation error on Linux/x86_64 with the x32 ABI.
+
+ * Fixed a regression introduced in 1.9.11p1 that caused a warning
+   when logging to sudo_logsrvd if the command returned no output.
+
+What's new in Sudo 1.9.11p1
+
+ * Correctly handle EAGAIN in the I/O read/right events.  This fixes
+   a hang seen on some systems when piping a large amount of data
+   through sudo, such as via rsync.  Bug #963.
+
+ * Changes to avoid implementation or unspecified behavior when
+   bit shifting signed values in the protobuf library.
+
+ * Fixed a compilation error on Linux/aarch64.
+
+ * Fixed the configure check for seccomp(2) support on Linux.
+
+ * Corrected the EBNF specification for tags in the sudoers manual
+   page.  GitHub issue #153.
+
+What's new in Sudo 1.9.11
+
+ * Fixed a crash in the Python module with Python 3.9.10 on some
+   systems.  Additionally, "make check" now passes for Python 3.9.10.
+
+ * Error messages sent via email now include more details, including
+   the file name and the line number and column of the error.
+   Multiple errors are sent in a single message.  Previously, only
+   the first error was included.
+
+ * Fixed logging of parse errors in JSON format.  Previously,
+   the JSON logger would not write entries unless the command and
+   runuser were set.  These may not be known at the time a parse
+   error is encountered.
+
+ * Fixed a potential crash parsing sudoers lines larger than twice
+   the value of LINE_MAX on systems that lack the getdelim() function.
+
+ * The tests run by "make check" now unset the LANGUAGE environment
+   variable.  Otherwise, localization strings will not match if
+   LANGUAGE is set to a non-English locale.  Bug #1025.
+
+ * The "starttime" test now passed when run under Debian faketime.
+   Bug #1026.
+
+ * The Kerberos authentication module now honors the custom password
+   prompt if one has been specified.
+
+ * The embedded copy of zlib has been updated to version 1.2.12.
+
+ * Updated the version of libtool used by sudo to version 2.4.7.
+
+ * Sudo now defines _TIME_BITS to 64 on systems that define __TIMESIZE
+   in the header files (currently only GNU libc).  This is required
+   to allow the use of 64-bit time values on some 32-bit systems.
+
+ * Sudo's "intercept" and "log_subcmds" options no longer force the
+   command to run in its own pseudo-terminal.  It is now also
+   possible to intercept the system(3) function.
+
+ * Fixed a bug in sudo_logsrvd when run in store-first relay mode
+   where the commit point messages sent by the server were incorrect
+   if the command was suspended or received a window size change
+   event.
+
+ * Fixed a potential crash in sudo_logsrvd when the "tls_dhparams"
+   configuration setting was used.
+
+ * The "intercept" and "log_subcmds" functionality can now use
+   ptrace(2) on Linux systems that support seccomp(2) filtering.
+   This has the advantage of working for both static and dynamic
+   binaries and can work with sudo's SELinux RBAC mode.  The following
+   architectures are currently supported: i386, x86_64, aarch64,
+   arm, mips (log_subcmds only), powerpc, riscv, and s390x.  The
+   default is to use ptrace(2) where possible; the new "intercept_type"
+   sudoers setting can be used to explicitly set the type.
+
+ * New Georgian translation from translationproject.org.
+
+ * Fixed creating packages on CentOS Stream.
+
+ * Fixed a bug in the intercept and log_subcmds support where
+   the execve(2) wrapper was using the current environment instead
+   of the passed environment pointer.  Bug #1030.
+
+ * Added AppArmor integration for Linux.  A sudoers rule can now
+   specify an APPARMOR_PROFILE option to run a command confined by
+   the named AppArmor profile.
+
+ * Fixed parsing of the "server_log" setting in sudo_logsrvd.conf.
+   Non-paths were being treated as paths and an actual path was
+   treated as an error.
+
 What's new in Sudo 1.9.10
 
  * Added new "log_passwords" and "passprompt_regex" sudoers options.

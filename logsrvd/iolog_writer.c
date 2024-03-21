@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -49,22 +54,28 @@
 
 #include "logsrvd.h"
 
-static inline bool
-has_numval(InfoMessage *info)
+static bool
+type_matches(InfoMessage *info, const char *source,
+    InfoMessage__ValueCase value_case)
 {
-    return info->value_case == INFO_MESSAGE__VALUE_NUMVAL;
-}
+    const void *val = info->u.strval;	/* same for strlistval */
+    debug_decl(type_matches, SUDO_DEBUG_UTIL);
 
-static inline bool
-has_strval(InfoMessage *info)
-{
-    return info->value_case == INFO_MESSAGE__VALUE_STRVAL;
-}
-
-static inline bool
-has_strlistval(InfoMessage *info)
-{
-    return info->value_case == INFO_MESSAGE__VALUE_STRLISTVAL;
+    if (info->key == NULL) {
+	sudo_warnx(U_("%s: protocol error: NULL key"), source);
+	debug_return_bool(false);
+    }
+    if (info->value_case != value_case) {
+	sudo_warnx(U_("%s: protocol error: wrong type for %s"),
+	    source, info->key);
+	debug_return_bool(false);
+    }
+    if (value_case != INFO_MESSAGE__VALUE_NUMVAL && val == NULL) {
+	sudo_warnx(U_("%s: protocol error: NULL value found in %s"),
+	    source, info->key);
+	debug_return_bool(false);
+    }
+    debug_return_bool(true);
 }
 
 /*
@@ -132,7 +143,10 @@ evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen,
     }
 
     /* Client/peer IP address. */
-    evlog->peeraddr = closure->ipaddr;
+    if ((evlog->peeraddr = strdup(closure->ipaddr)) == NULL) {
+	sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
+	goto bad;
+    }
 
     /* Submit time. */
     if (submit_time != NULL) {
@@ -154,210 +168,170 @@ evlog_new(TimeSpec *submit_time, InfoMessage **info_msgs, size_t infolen,
 	switch (key[0]) {
 	case 'c':
 	    if (strcmp(key, "columns") == 0) {
-		if (!has_numval(info)) {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "columns");
-		} else if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
-		    errno = ERANGE;
-		    sudo_warn(U_("%s: %s"), source, "columns");
-		} else {
-		    evlog->columns = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "columns");
+		    } else {
+			evlog->columns = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "command") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->command = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "command");
 		}
 		continue;
 	    }
 	    break;
 	case 'l':
 	    if (strcmp(key, "lines") == 0) {
-		if (!has_numval(info)) {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "lines");
-		} else if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
-		    errno = ERANGE;
-		    sudo_warn(U_("%s: %s"), source, "lines");
-		} else {
-		    evlog->lines = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval <= 0 || info->u.numval > INT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "lines");
+		    } else {
+			evlog->lines = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    break;
 	case 'r':
 	    if (strcmp(key, "runargv") == 0) {
-		if (has_strlistval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRLISTVAL)) {
 		    evlog->argv = strlist_copy(info->u.strlistval);
 		    if (evlog->argv == NULL)
 			goto bad;
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runargv");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runchroot") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runchroot = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runchroot");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runcwd") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runcwd = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runcwd");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runenv") == 0) {
-		if (has_strlistval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRLISTVAL)) {
 		    evlog->envp = strlist_copy(info->u.strlistval);
 		    if (evlog->envp == NULL)
 			goto bad;
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runenv");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "rungid") == 0) {
-		if (!has_numval(info)) {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "rungid");
-		} else if (info->u.numval < 0 || info->u.numval > INT_MAX) {
-		    errno = ERANGE;
-		    sudo_warn(U_("%s: %s"), source, "rungid");
-		} else {
-		    evlog->rungid = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval < 0 || info->u.numval > UINT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "rungid");
+		    } else {
+			evlog->rungid = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "rungroup") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->rungroup = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "rungroup");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runuid") == 0) {
-		if (!has_numval(info)) {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runuid");
-		} else if (info->u.numval < 0 || info->u.numval > INT_MAX) {
-		    errno = ERANGE;
-		    sudo_warn(U_("%s: %s"), source, "runuid");
-		} else {
-		    evlog->runuid = info->u.numval;
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_NUMVAL)) {
+		    if (info->u.numval < 0 || info->u.numval > UINT_MAX) {
+			errno = ERANGE;
+			sudo_warn(U_("%s: %s"), source, "runuid");
+		    } else {
+			evlog->runuid = info->u.numval;
+		    }
 		}
 		continue;
 	    }
 	    if (strcmp(key, "runuser") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->runuser = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "runuser");
 		}
 		continue;
 	    }
 	    break;
 	case 's':
 	    if (strcmp(key, "submitcwd") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->cwd = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "submitcwd");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submitgroup") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submitgroup = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "submitgroup");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submithost") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submithost = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "submithost");
 		}
 		continue;
 	    }
 	    if (strcmp(key, "submituser") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->submituser = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "submituser");
 		}
 		continue;
 	    }
 	    break;
 	case 't':
 	    if (strcmp(key, "ttyname") == 0) {
-		if (has_strval(info)) {
+		if (type_matches(info, source, INFO_MESSAGE__VALUE_STRVAL)) {
 		    if ((evlog->ttyname = strdup(info->u.strval)) == NULL) {
 			sudo_warnx(U_("%s: %s"), __func__,
 			    U_("unable to allocate memory"));
 			goto bad;
 		    }
-		} else {
-		    sudo_warnx(U_("%s: protocol error: wrong type for %s"),
-			source, "ttyname");
 		}
 		continue;
 	    }
@@ -912,6 +886,10 @@ update_elapsed_time(TimeSpec *delta, struct timespec *elapsed)
 	elapsed->tv_sec++;
 	elapsed->tv_nsec -= 1000000000;
     }
+    sudo_debug_printf(SUDO_DEBUG_DEBUG|SUDO_DEBUG_LINENO,
+	"%s: delta [%lld, %d], elapsed time now [%lld, %ld]",
+	__func__, (long long)delta->tv_sec, delta->tv_nsec,
+	(long long)elapsed->tv_sec, elapsed->tv_nsec);
 
     debug_return;
 }

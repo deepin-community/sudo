@@ -43,17 +43,20 @@
 
 static int fuzz_conversation(int num_msgs, const struct sudo_conv_message msgs[], struct sudo_conv_reply replies[], struct sudo_conv_callback *callback);
 static int fuzz_printf(int msg_type, const char *fmt, ...);
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+/* For set_cmnd_path() */
+static const char *orig_cmnd;
 
 /* Required to link with parser. */
 struct sudo_user sudo_user;
 struct passwd *list_pw;
 sudo_conv_t sudo_conv = fuzz_conversation;
 sudo_printf_t sudo_printf = fuzz_printf;
-bool sudoers_recovery = true;
 int sudo_mode;
 
 FILE *
-open_sudoers(const char *file, bool doedit, bool *keepopen)
+open_sudoers(const char *file, char **outfile, bool doedit, bool *keepopen)
 {
     /*
      * If we allow the fuzzer to choose include paths it will
@@ -104,8 +107,20 @@ init_envtables(void)
 int
 set_cmnd_path(const char *runchroot)
 {
-    /* Cannot return FOUND without also setting user_cmnd to a new value. */
-    return NOT_FOUND;
+    /* Reallocate user_cmnd to catch bugs in command_matches(). */
+    char *new_cmnd = strdup(orig_cmnd);
+    if (new_cmnd == NULL)
+        return NOT_FOUND_ERROR;
+    free(user_cmnd);
+    user_cmnd = new_cmnd;
+    return FOUND;
+}
+
+/* STUB */
+bool
+mail_parse_errors(void)
+{
+    return true;
 }
 
 /* STUB */
@@ -116,13 +131,27 @@ log_warningx(int flags, const char *fmt, ...)
 }
 
 static int
-sudo_fuzz_query(struct sudo_nss *nss, struct passwd *pw)
+sudo_fuzz_query(const struct sudo_nss *nss, struct passwd *pw)
 {
     return 0;
 }
 
 static int
 cb_unused(struct sudoers_parse_tree *parse_tree, struct alias *a, void *v)
+{
+    return 0;
+}
+
+bool
+cb_log_input(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
+{
+    return 0;
+}
+
+bool
+cb_log_output(const char *file, int line, int column,
+    const union sudo_defs_val *sd_un, int op)
 {
     return 0;
 }
@@ -154,9 +183,9 @@ open_data(const uint8_t *data, size_t size)
 }
 
 static struct user_data {
-    char *user;
-    char *runuser;
-    char *rungroup;
+    const char *user;
+    const char *runuser;
+    const char *rungroup;
 } user_data[] = {
     { "root", NULL, NULL },
     { "millert", "operator", NULL },
@@ -175,7 +204,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     struct interface_list *interfaces;
     struct passwd *pw;
     struct group *gr;
-    char *gids[10];
+    const char *gids[10];
     FILE *fp;
 
     /* Don't waste time fuzzing tiny inputs. */
@@ -186,7 +215,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (fp == NULL)
         return 0;
 
-    setprogname("fuzz_sudoers");
+    initprogname("fuzz_sudoers");
     sudoers_debug_register(getprogname(), NULL);
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
@@ -229,7 +258,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     gids[1] = "20";
     gids[2] = "5";
     gids[3] = NULL;
-    if (sudo_set_gidlist(pw, gids, ENTRY_TYPE_FRONTEND) == -1)
+    if (sudo_set_gidlist(pw, (char **)gids, ENTRY_TYPE_FRONTEND) == -1)
 	goto done;
     sudo_pw_delref(pw);
 
@@ -238,7 +267,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	goto done;
     gids[0] = "5";
     gids[1] = NULL;
-    if (sudo_set_gidlist(pw, gids, ENTRY_TYPE_FRONTEND) == -1)
+    if (sudo_set_gidlist(pw, (char **)gids, ENTRY_TYPE_FRONTEND) == -1)
 	goto done;
     sudo_pw_delref(pw);
 
@@ -250,17 +279,18 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     gids[2] = "5";
     gids[3] = "100";
     gids[4] = NULL;
-    if (sudo_set_gidlist(pw, gids, ENTRY_TYPE_FRONTEND) == -1)
+    if (sudo_set_gidlist(pw, (char **)gids, ENTRY_TYPE_FRONTEND) == -1)
 	goto done;
     sudo_pw_delref(pw);
 
     /* The minimum needed to perform matching (user_cmnd must be dynamic). */
-    user_host = user_shost = user_runhost = user_srunhost = "localhost";
-    user_cmnd = strdup("/usr/bin/id");
+    user_host = user_shost = user_runhost = user_srunhost = (char *)"localhost";
+    orig_cmnd = (char *)"/usr/bin/id";
+    user_cmnd = strdup(orig_cmnd);
     if (user_cmnd == NULL)
 	goto done;
-    user_args = "-u";
-    user_base = "id";
+    user_args = (char *)"-u";
+    user_base = sudo_basename(user_cmnd);
 
     /* Add a fake network interfaces. */
     interfaces = get_interfaces();
@@ -274,7 +304,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     }
 
     /* Only one sudoers source, the sudoers file itself. */
-    init_parse_tree(&parse_tree, NULL, NULL);
+    init_parse_tree(&parse_tree, NULL, NULL, NULL);
     memset(&sudo_nss_fuzz, 0, sizeof(sudo_nss_fuzz));
     sudo_nss_fuzz.parse_tree = &parse_tree;
     sudo_nss_fuzz.query = sudo_fuzz_query;
@@ -282,7 +312,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 
     /* Initialize defaults and parse sudoers. */
     init_defaults();
-    init_parser("sudoers", false, true);
+    init_parser("sudoers", NULL);
     sudoersrestart(fp);
     sudoersparse();
     reparent_parse_tree(&parse_tree);
@@ -293,7 +323,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	    int cmnd_status;
 
 	    /* Invoking user. */
-	    user_name = ud->user;
+	    user_name = (char *)ud->user;
 	    if (sudo_user.pw != NULL)
 		sudo_pw_delref(sudo_user.pw);
 	    sudo_user.pw = sudo_getpwnam(user_name);
@@ -306,7 +336,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	    if (runas_pw != NULL)
 		sudo_pw_delref(runas_pw);
 	    if (ud->runuser != NULL) {
-		sudo_user.runas_user = ud->runuser;
+		sudo_user.runas_user = (char *)ud->runuser;
 		SET(sudo_user.flags, RUNAS_USER_SPECIFIED);
 		runas_pw = sudo_getpwnam(sudo_user.runas_user);
 	    } else {
@@ -323,7 +353,7 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 	    if (runas_gr != NULL)
 		sudo_gr_delref(runas_gr);
 	    if (ud->rungroup != NULL) {
-		sudo_user.runas_group = ud->rungroup;
+		sudo_user.runas_group = (char *)ud->rungroup;
 		SET(sudo_user.flags, RUNAS_GROUP_SPECIFIED);
 		runas_gr = sudo_getgrnam(sudo_user.runas_group);
 		if (runas_gr == NULL) {
@@ -368,7 +398,7 @@ done:
     /* Cleanup. */
     fclose(fp);
     free_parse_tree(&parse_tree);
-    init_parser(NULL, true, true);
+    reset_parser();
     if (sudo_user.pw != NULL)
 	sudo_pw_delref(sudo_user.pw);
     if (runas_pw != NULL)
@@ -379,6 +409,7 @@ done:
     sudo_freegrcache();
     free(user_cmnd);
     free(safe_cmnd);
+    free(list_cmnd);
     memset(&sudo_user, 0, sizeof(sudo_user));
     sudoers_setlocale(SUDOERS_LOCALE_USER, NULL);
     sudoers_debug_deregister();

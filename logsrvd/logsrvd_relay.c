@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2019-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2019-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -16,7 +16,12 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
-#include "config.h"
+/*
+ * This is an open source non-commercial project. Dear PVS-Studio, please check it.
+ * PVS-Studio Static Code Analyzer for C, C++ and C#: http://www.viva64.com
+ */
+
+#include <config.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -234,7 +239,7 @@ fmt_client_hello(struct connection_closure *closure)
     debug_decl(fmt_client_hello, SUDO_DEBUG_UTIL);
 
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: sending ClientHello", __func__);
-    hello_msg.client_id = "Sudo Logsrvd " PACKAGE_VERSION;
+    hello_msg.client_id = (char *)"Sudo Logsrvd " PACKAGE_VERSION;
 
     client_msg.u.hello_msg = &hello_msg;
     client_msg.type_case = CLIENT_MESSAGE__TYPE_HELLO_MSG;
@@ -295,7 +300,7 @@ bad:
  * Returns 0 on success, -1 on error, setting errno.
  * If there is no next relay, errno is set to ENOENT.
  */
-int
+static int
 connect_relay_next(struct connection_closure *closure)
 {
     struct relay_closure *relay_closure = closure->relay_closure;
@@ -342,9 +347,11 @@ connect_relay_next(struct connection_closure *closure)
     case AF_INET:
 	addr = (char *)&relay->sa_un.sin.sin_addr;
 	break;
+#ifdef HAVE_STRUCT_IN6_ADDR
     case AF_INET6:
 	addr = (char *)&relay->sa_un.sin6.sin6_addr;
 	break;
+#endif
     default:
 	errno = EAFNOSUPPORT;
 	sudo_warn("connect");
@@ -644,7 +651,7 @@ handle_server_message(uint8_t *buf, size_t len, struct connection_closure *closu
     sudo_debug_printf(SUDO_DEBUG_INFO, "%s: unpacking ServerMessage", __func__);
     msg = server_message__unpack(NULL, len, buf);
     if (msg == NULL) {
-	sudo_warnx("unable to unpack %s size %zu", "ServerMessage", len);
+	sudo_warnx(U_("unable to unpack %s size %zu"), "ServerMessage", len);
 	debug_return_bool(false);
     }
 
@@ -763,7 +770,8 @@ relay_server_msg_cb(int fd, int what, void *v)
 			closure->errstr = _("error reading from relay");
                     }
 		    sudo_warnx("%s: SSL_read: %s",
-			relay_closure->relay_name.ipaddr, errstr);
+			relay_closure->relay_name.ipaddr,
+			errstr ? errstr : strerror(errno));
                     goto send_error;
                 case SSL_ERROR_SYSCALL:
 		    if (nread == 0) {
@@ -778,7 +786,8 @@ relay_server_msg_cb(int fd, int what, void *v)
                 default:
                     errstr = ERR_reason_error_string(ERR_get_error());
 		    sudo_warnx("%s: SSL_read: %s",
-			relay_closure->relay_name.ipaddr, errstr);
+			relay_closure->relay_name.ipaddr,
+			errstr ? errstr : strerror(errno));
 		    closure->errstr = _("error reading from relay");
                     goto send_error;
             }
@@ -797,7 +806,7 @@ relay_server_msg_cb(int fd, int what, void *v)
 	relay_closure->relay_name.name, relay_closure->relay_name.ipaddr);
     switch (nread) {
     case -1:
-	if (errno == EAGAIN)
+	if (errno == EAGAIN || errno == EINTR)
 	    debug_return;
 	sudo_warn("%s: read", relay_closure->relay_name.ipaddr);
 	closure->errstr = _("unable to read from relay");
@@ -957,7 +966,8 @@ relay_client_msg_cb(int fd, int what, void *v)
                 default:
 		    errstr = ERR_reason_error_string(ERR_get_error());
 		    sudo_warnx("%s: SSL_write: %s",
-			relay_closure->relay_name.ipaddr, errstr);
+			relay_closure->relay_name.ipaddr,
+			errstr ? errstr : strerror(errno));
 		    closure->errstr = _("error writing to relay");
 		    goto send_error;
             }
@@ -967,6 +977,8 @@ relay_client_msg_cb(int fd, int what, void *v)
     {
 	nwritten = write(fd, buf->data + buf->off, buf->len - buf->off);
 	if (nwritten == -1) {
+	    if (errno == EAGAIN || errno == EINTR)
+		debug_return;
 	    sudo_warn("%s: write", relay_closure->relay_name.ipaddr);
 	    closure->errstr = _("error writing to relay");
 	    goto send_error;

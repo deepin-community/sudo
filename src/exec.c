@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2023 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -48,6 +48,14 @@
 #include "sudo_plugin.h"
 #include "sudo_plugin_int.h"
 
+#ifdef HAVE_PTRACE_INTERCEPT
+static void
+handler(int signo)
+{
+    /* just return */
+}
+#endif /* HAVE_PTRACE_INTERCEPT */
+
 static void
 close_fds(struct command_details *details, int errfd, int intercept_fd)
 {
@@ -86,6 +94,13 @@ exec_setup(struct command_details *details, int intercept_fd, int errfd)
     bool ret = false;
     debug_decl(exec_setup, SUDO_DEBUG_EXEC);
 
+#ifdef HAVE_PTRACE_INTERCEPT
+    if (ISSET(details->flags, CD_USE_PTRACE)) {
+	if (!set_exec_filter())
+	    goto done;
+    }
+#endif /* HAVE_PTRACE_INTERCEPT */
+
     if (details->pw != NULL) {
 #ifdef HAVE_PROJECT_H
 	set_project(details->pw);
@@ -93,18 +108,18 @@ exec_setup(struct command_details *details, int intercept_fd, int errfd)
 #ifdef HAVE_PRIV_SET
 	if (details->privs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_INHERITABLE, details->privs) != 0) {
-		sudo_warn("unable to set privileges");
+		sudo_warn("%s", U_("unable to set privileges"));
 		goto done;
 	    }
 	}
 	if (details->limitprivs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_LIMIT, details->limitprivs) != 0) {
-		sudo_warn("unable to set limit privileges");
+		sudo_warn("%s", U_("unable to set limit privileges"));
 		goto done;
 	    }
 	} else if (details->privs != NULL) {
 	    if (setppriv(PRIV_SET, PRIV_LIMIT, details->privs) != 0) {
-		sudo_warn("unable to set limit privileges");
+		sudo_warn("%s", U_("unable to set limit privileges"));
 		goto done;
 	    }
 	}
@@ -211,16 +226,22 @@ exec_setup(struct command_details *details, int intercept_fd, int errfd)
      * Only change cwd if we have chroot()ed or the policy modules
      * specifies a different cwd.  Must be done after uid change.
      */
-    if (details->cwd != NULL) {
-	if (details->chroot != NULL || user_details.cwd == NULL ||
-	    strcmp(details->cwd, user_details.cwd) != 0) {
-	    /* Note: cwd is relative to the new root, if any. */
-	    if (chdir(details->cwd) == -1) {
-		sudo_warn(U_("unable to change directory to %s"), details->cwd);
-		if (!details->cwd_optional)
-		    goto done;
-		if (details->chroot != NULL)
-		    sudo_warnx(U_("starting from %s"), "/");
+    if (details->runcwd != NULL) {
+	if (details->chroot != NULL || details->submitcwd == NULL ||
+	    strcmp(details->runcwd, details->submitcwd) != 0) {
+	    if (ISSET(details->flags, CD_RBAC_ENABLED)) {
+		 /* For SELinux, chdir(2) in sesh after the context change. */
+		SET(details->flags, CD_RBAC_SET_CWD);
+	    } else {
+		/* Note: runcwd is relative to the new root, if any. */
+		if (chdir(details->runcwd) == -1) {
+		    sudo_warn(U_("unable to change directory to %s"),
+			details->runcwd);
+		    if (!ISSET(details->flags, CD_CWD_OPTIONAL))
+			goto done;
+		    if (details->chroot != NULL)
+			sudo_warnx(U_("starting from %s"), "/");
+		}
 	    }
 	}
     }
@@ -238,17 +259,42 @@ done:
  * If the exec fails, cstat is filled in with the value of errno.
  */
 void
-exec_cmnd(struct command_details *details, int intercept_fd, int errfd)
+exec_cmnd(struct command_details *details, sigset_t *mask,
+    int intercept_fd, int errfd)
 {
     debug_decl(exec_cmnd, SUDO_DEBUG_EXEC);
 
+#ifdef HAVE_PTRACE_INTERCEPT
+    if (ISSET(details->flags, CD_USE_PTRACE)) {
+	struct sigaction sa;
+	sigset_t set;
+
+	/* Tracer will send us SIGUSR1 when it is time to proceed. */
+	memset(&sa, 0, sizeof(sa));
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+	sa.sa_handler = handler;
+	if (sudo_sigaction(SIGUSR1, &sa, NULL) != 0) {
+	    sudo_warn(U_("unable to set handler for signal %d"),
+		SIGUSR1);
+	}
+
+	/* Suspend child until tracer seizes control and sends SIGUSR1. */
+	sigfillset(&set);
+	sigdelset(&set, SIGUSR1);
+	sigsuspend(&set);
+    }
+#endif /* HAVE_PTRACE_INTERCEPT */
+
+    if (mask != NULL)
+	sigprocmask(SIG_SETMASK, mask, NULL);
     restore_signals();
     if (exec_setup(details, intercept_fd, errfd) == true) {
 	/* headed for execve() */
 #ifdef HAVE_SELINUX
 	if (ISSET(details->flags, CD_RBAC_ENABLED)) {
 	    selinux_execve(details->execfd, details->command, details->argv,
-		details->envp, ISSET(details->flags, CD_NOEXEC));
+		details->envp, details->runcwd, details->flags);
 	} else
 #endif
 	{
@@ -314,25 +360,17 @@ sudo_terminated(struct command_status *cstat)
     debug_return_bool(false);
 }
 
-#if SUDO_API_VERSION != SUDO_API_MKVERSION(1, 18)
-# error "Update sudo_needs_pty() after changing the plugin API"
-#endif
 static bool
-sudo_needs_pty(struct command_details *details)
+sudo_needs_pty(const struct command_details *details)
 {
     struct plugin_container *plugin;
 
-    if (ISSET(details->flags, CD_USE_PTY|CD_INTERCEPT|CD_LOG_SUBCMDS))
+    if (ISSET(details->flags, CD_USE_PTY))
 	return true;
 
     TAILQ_FOREACH(plugin, &io_plugins, entries) {
 	if (plugin->u.io->log_ttyin != NULL ||
-	    plugin->u.io->log_ttyout != NULL ||
-	    plugin->u.io->log_stdin != NULL ||
-	    plugin->u.io->log_stdout != NULL ||
-	    plugin->u.io->log_stderr != NULL ||
-	    plugin->u.io->change_winsize != NULL ||
-	    plugin->u.io->log_suspend != NULL)
+	    plugin->u.io->log_ttyout != NULL)
 	    return true;
     }
     return false;
@@ -344,7 +382,7 @@ sudo_needs_pty(struct command_details *details)
  * sudo can exec the command directly (and not wait).
  */
 static bool
-direct_exec_allowed(struct command_details *details)
+direct_exec_allowed(const struct command_details *details)
 {
     struct plugin_container *plugin;
     debug_decl(direct_exec_allowed, SUDO_DEBUG_EXEC);
@@ -369,9 +407,30 @@ direct_exec_allowed(struct command_details *details)
  * we fact that we have two different controlling terminals to deal with.
  */
 int
-sudo_execute(struct command_details *details, struct command_status *cstat)
+sudo_execute(struct command_details *details,
+    const struct user_details *user_details,
+    struct sudo_event_base *evbase, struct command_status *cstat)
 {
     debug_decl(sudo_execute, SUDO_DEBUG_EXEC);
+
+#if defined(HAVE_SELINUX) && !defined(HAVE_PTRACE_INTERCEPT)
+    /*
+     * SELinux prevents LD_PRELOAD from functioning so we must use
+     * ptrace-based intercept mode.
+     */
+    if (details->selinux_role != NULL || details->selinux_type != NULL) {
+	if (ISSET(details->flags, CD_INTERCEPT)) {
+	    sudo_warnx("%s",
+		U_("intercept mode is not supported with SELinux RBAC on this system"));
+	    CLR(details->flags, CD_INTERCEPT);
+	}
+	if (ISSET(details->flags, CD_LOG_SUBCMDS)) {
+	    sudo_warnx("%s",
+		U_("unable to log sub-commands with SELinux RBAC on this system"));
+	    CLR(details->flags, CD_LOG_SUBCMDS);
+	}
+    }
+#endif /* HAVE_SELINUX && !HAVE_PTRACE_INTERCEPT */
 
     /* If running in background mode, fork and exit. */
     if (ISSET(details->flags, CD_BACKGROUND)) {
@@ -381,7 +440,11 @@ sudo_execute(struct command_details *details, struct command_status *cstat)
 		cstat->val = errno;
 		debug_return_int(-1);
 	    case 0:
-		/* child continues without controlling terminal */
+		/*
+		 * Child continues in an orphaned process group.
+		 * Reads from the terminal fail with EIO.
+		 * Writes succeed unless tostop is set on the terminal.
+		 */
 		(void)setpgid(0, 0);
 		break;
 	    default:
@@ -404,7 +467,7 @@ sudo_execute(struct command_details *details, struct command_status *cstat)
      * is configured, this returns false and we run the command without a pty.
      */
     if (sudo_needs_pty(details)) {
-	if (exec_pty(details, cstat))
+	if (exec_pty(details, user_details, evbase, cstat))
 	    goto done;
     }
 
@@ -414,7 +477,7 @@ sudo_execute(struct command_details *details, struct command_status *cstat)
      */
     if (direct_exec_allowed(details)) {
 	if (!sudo_terminated(cstat)) {
-	    exec_cmnd(details, -1, -1);
+	    exec_cmnd(details, NULL, -1, -1);
 	    cstat->type = CMD_ERRNO;
 	    cstat->val = errno;
 	}
@@ -424,7 +487,7 @@ sudo_execute(struct command_details *details, struct command_status *cstat)
     /*
      * Run the command in the existing tty (if any) and wait for it to finish.
      */
-    exec_nopty(details, cstat);
+    exec_nopty(details, user_details, evbase, cstat);
 
 done:
     /* The caller will run any plugin close functions. */
@@ -463,6 +526,38 @@ terminate_command(pid_t pid, bool use_pgrp)
 	sudo_debug_printf(SUDO_DEBUG_INFO, "kill %d SIGKILL", (int)pid);
 	kill(pid, SIGKILL);
     }
+
+    debug_return;
+}
+
+/*
+ * Free the dynamically-allocated contents of the exec closure.
+ */
+void
+free_exec_closure(struct exec_closure *ec)
+{
+    debug_decl(free_exec_closure, SUDO_DEBUG_EXEC);
+
+    /* Free any remaining intercept resources. */
+    intercept_cleanup(ec);
+
+    sudo_ev_base_free(ec->evbase);
+    sudo_ev_free(ec->backchannel_event);
+    sudo_ev_free(ec->fwdchannel_event);
+    sudo_ev_free(ec->sigint_event);
+    sudo_ev_free(ec->sigquit_event);
+    sudo_ev_free(ec->sigtstp_event);
+    sudo_ev_free(ec->sigterm_event);
+    sudo_ev_free(ec->sighup_event);
+    sudo_ev_free(ec->sigalrm_event);
+    sudo_ev_free(ec->sigpipe_event);
+    sudo_ev_free(ec->sigusr1_event);
+    sudo_ev_free(ec->sigusr2_event);
+    sudo_ev_free(ec->sigchld_event);
+    sudo_ev_free(ec->sigcont_event);
+    sudo_ev_free(ec->siginfo_event);
+    sudo_ev_free(ec->sigwinch_event);
+    free(ec->ptyname);
 
     debug_return;
 }

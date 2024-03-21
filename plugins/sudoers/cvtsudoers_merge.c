@@ -328,7 +328,7 @@ alias_make_unique(const char *old_name, int type,
     struct sudoers_parse_tree *parse_tree0,
     struct sudoers_parse_tree *merged_tree)
 {
-    struct sudoers_parse_tree *parse_tree = parse_tree0;
+    struct sudoers_parse_tree *parse_tree;
     char *cp, *new_name = NULL;
     struct alias *a;
     long long suffix;
@@ -973,6 +973,14 @@ cmndspec_equivalent(struct cmndspec *cs1, struct cmndspec *cs2, bool check_negat
 	if (strcmp(cs1->type, cs2->type) != 0)
 	    debug_return_bool(false);
     } else if (cs1->type != cs2->type) {
+	debug_return_bool(false);
+    }
+#endif
+#ifdef HAVE_APPARMOR
+    if (cs1->apparmor_profile != NULL && cs2->apparmor_profile != NULL) {
+	if (strcmp(cs1->apparmor_profile, cs2->apparmor_profile) != 0)
+	    debug_return_bool(false);
+    } else if (cs1->apparmor_profile != cs2->apparmor_profile) {
 	debug_return_bool(false);
     }
 #endif
