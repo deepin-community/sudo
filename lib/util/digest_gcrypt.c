@@ -23,15 +23,22 @@
 
 #include <config.h>
 
+#ifdef HAVE_STDBOOL_H
+# include <stdbool.h>
+#else
+# include <compat/stdbool.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
 
 #include <gcrypt.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_digest.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_digest.h>
+
+#define SUDO_LIBGCRYPT_VERSION_MIN "1.3.0"
 
 struct sudo_digest {
     int gcry_digest_type;
@@ -41,7 +48,7 @@ struct sudo_digest {
 
 /* Map sudo digest type to gcrypt digest type. */
 static int
-sudo_digest_type_to_gcry(int digest_type)
+sudo_digest_type_to_gcry(unsigned int digest_type)
 {
     switch (digest_type) {
     case SUDO_DIGEST_SHA224:
@@ -58,11 +65,23 @@ sudo_digest_type_to_gcry(int digest_type)
 }
 
 struct sudo_digest *
-sudo_digest_alloc_v1(int digest_type)
+sudo_digest_alloc_v1(unsigned int digest_type)
 {
     debug_decl(sudo_digest_alloc, SUDO_DEBUG_UTIL);
+    static bool initialized = false;
     struct sudo_digest *dig;
     int gcry_digest_type;
+
+    if (!initialized) {
+	if (!gcry_check_version(SUDO_LIBGCRYPT_VERSION_MIN)) {
+	    sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO,
+		"libgcrypt too old (need %s, have %s)",
+		SUDO_LIBGCRYPT_VERSION_MIN, gcry_check_version(NULL));
+	    debug_return_ptr(NULL);
+	}
+	gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+	initialized = true;
+    }
 
     gcry_digest_type = sudo_digest_type_to_gcry(digest_type);
     if (gcry_digest_type == -1) {
@@ -106,17 +125,24 @@ sudo_digest_reset_v1(struct sudo_digest *dig)
     debug_return;
 }
 
-int
-sudo_digest_getlen_v1(int digest_type)
+size_t
+sudo_digest_getlen_v2(unsigned int digest_type)
 {
     debug_decl(sudo_digest_getlen, SUDO_DEBUG_UTIL);
     int gcry_digest_type;
 
     gcry_digest_type = sudo_digest_type_to_gcry(digest_type);
     if (gcry_digest_type == -1)
-	debug_return_int(-1);
+	debug_return_size_t(0);
 
-    debug_return_int(gcry_md_get_algo_dlen(gcry_digest_type));
+    debug_return_size_t(gcry_md_get_algo_dlen(gcry_digest_type));
+}
+
+int
+sudo_digest_getlen_v1(unsigned int digest_type)
+{
+    size_t len = sudo_digest_getlen_v2(digest_type);
+    return len ? (int)len : -1;
 }
 
 void

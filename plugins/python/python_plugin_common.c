@@ -24,8 +24,8 @@
 #include "python_plugin_common.h"
 #include "sudo_python_module.h"
 
-#include "sudo_queue.h"
-#include "sudo_conf.h"
+#include <sudo_queue.h>
+#include <sudo_conf.h>
 
 #include <limits.h>
 #include <string.h>
@@ -42,7 +42,7 @@ static size_t python_inittab_copy_len = 0;
 # define Py_FinalizeEx()	(Py_Finalize(), 0)
 #endif
 
-const char *
+static const char *
 _lookup_value(char * const keyvalues[], const char *key)
 {
     debug_decl(_lookup_value, PYTHON_DEBUG_INTERNAL);
@@ -64,7 +64,7 @@ _append_python_path(const char *module_dir)
 {
     debug_decl(_append_python_path, PYTHON_DEBUG_PLUGIN_LOAD);
     int rc = -1;
-    PyObject *py_sys_path = PySys_GetObject("path");
+    PyObject *py_sys_path = PySys_GetObject("path"); // borrowed
     if (py_sys_path == NULL) {
         PyErr_Format(sudo_exc_SudoException, "Failed to get python 'path'");
         debug_return_int(rc);
@@ -77,7 +77,7 @@ _append_python_path(const char *module_dir)
         Py_XDECREF(py_module_dir);
         debug_return_int(rc);
     }
-    Py_XDECREF(py_module_dir);
+    Py_DECREF(py_module_dir);
 
     if (sudo_debug_needed(SUDO_DEBUG_INFO)) {
         char *path = py_join_str_list(py_sys_path, ":");
@@ -101,7 +101,7 @@ _import_module(const char *path)
     if (strlcpy(path_copy, path, sizeof(path_copy)) >= sizeof(path_copy))
         debug_return_ptr(NULL);
 
-    char *module_dir = path_copy;
+    const char *module_dir = path_copy;
     char *module_name = strrchr(path_copy, '/');
     if (module_name == NULL) {
         module_name = path_copy;
@@ -137,6 +137,7 @@ _import_module(const char *path)
     debug_return_ptr(module);
 }
 
+// Create a new sub-interpreter and switch to it.
 static PyThreadState *
 _python_plugin_new_interpreter(void)
 {
@@ -190,7 +191,7 @@ _restore_inittab(void)
     debug_return;
 }
 
-void
+static void
 python_plugin_handle_plugin_error_exception(PyObject **py_result, struct PluginContext *plugin_ctx)
 {
     debug_decl(python_plugin_handle_plugin_error_exception, PYTHON_DEBUG_INTERNAL);
@@ -309,7 +310,6 @@ python_plugin_construct(struct PluginContext *plugin_ctx, unsigned int version,
 
     if (py_kwargs == NULL) {
         py_log_last_error("Failed to construct plugin instance");
-        rc = SUDO_RC_ERROR;
     } else {
         rc = python_plugin_construct_custom(plugin_ctx, py_kwargs);
     }
@@ -370,15 +370,39 @@ _python_plugin_register_plugin_in_py_ctx(void)
         // Disable environment variables effecting the python interpreter
         // This is important since we are running code here as root, the
         // user should not be able to alter what is running any how.
+#if (PY_MAJOR_VERSION > 3) || (PY_MINOR_VERSION >= 8)
+	PyStatus status;
+	PyPreConfig preconfig;
+	PyConfig config;
+
+	PyPreConfig_InitPythonConfig(&preconfig);
+	preconfig.isolated = 1;
+	preconfig.use_environment = 0;
+	status = Py_PreInitialize(&preconfig);
+	if (PyStatus_Exception(status))
+            debug_return_int(SUDO_RC_ERROR);
+
+	/* Inittab changes happen after pre-init but before init. */
+        if (_save_inittab() != SUDO_RC_OK)
+            debug_return_int(SUDO_RC_ERROR);
+        PyImport_AppendInittab("sudo", sudo_module_init);
+
+	PyConfig_InitPythonConfig(&config);
+	config.isolated = 1;
+	status = Py_InitializeFromConfig(&config);
+	PyConfig_Clear(&config);
+	if (PyStatus_Exception(status))
+            debug_return_int(SUDO_RC_ERROR);
+#else
         Py_IgnoreEnvironmentFlag = 1;
         Py_IsolatedFlag = 1;
         Py_NoUserSiteDirectory = 1;
 
         if (_save_inittab() != SUDO_RC_OK)
             debug_return_int(SUDO_RC_ERROR);
-
         PyImport_AppendInittab("sudo", sudo_module_init);
         Py_InitializeEx(0);
+#endif
         py_ctx.py_main_interpreter = PyThreadState_Get();
 
         // This ensures we import "sudo" module in the main interpreter,
@@ -396,7 +420,7 @@ _python_plugin_register_plugin_in_py_ctx(void)
     debug_return_int(SUDO_RC_OK);
 }
 
-int
+static int
 _python_plugin_set_path(struct PluginContext *plugin_ctx, const char *path)
 {
     if (path == NULL) {
@@ -450,7 +474,7 @@ cleanup:
 static PyObject *
 _python_plugin_get_class(const char *plugin_path, PyObject *py_module, const char *plugin_class)
 {
-    debug_decl(python_plugin_init, PYTHON_DEBUG_PLUGIN_LOAD);
+    debug_decl(_python_plugin_get_class, PYTHON_DEBUG_PLUGIN_LOAD);
     PyObject *py_plugin_list = NULL, *py_class = NULL;
 
     if (plugin_class == NULL) {
@@ -517,14 +541,10 @@ python_plugin_init(struct PluginContext *plugin_ctx, char * const plugin_options
     if (plugin_ctx->py_interpreter == NULL) {
         goto cleanup;
     }
-    PyThreadState_Swap(plugin_ctx->py_interpreter);
 
-    if (!sudo_conf_developer_mode() && sudo_module_register_importblocker() < 0) {
+    if (sudo_module_set_default_loghandler() != SUDO_RC_OK) {
         goto cleanup;
     }
-
-    if (sudo_module_set_default_loghandler() < 0)
-        goto cleanup;
 
     if (_python_plugin_set_path(plugin_ctx, _lookup_value(plugin_options, "ModulePath")) != SUDO_RC_OK) {
         goto cleanup;
@@ -694,6 +714,7 @@ python_plugin_close(struct PluginContext *plugin_ctx, const char *callback_name,
     }
 
     python_plugin_deinit(plugin_ctx);
+    PyThreadState_Swap(py_ctx.py_main_interpreter);
 
     debug_return;
 }
@@ -736,8 +757,9 @@ python_plugin_unlink(void)
     if (Py_IsInitialized()) {
         sudo_debug_printf(SUDO_DEBUG_NOTICE, "Closing: deinit python %zu subinterpreters\n",
                           py_ctx.interpreter_count);
-        for (size_t i = 0; i < py_ctx.interpreter_count; ++i) {
-            PyThreadState *py_interpreter = py_ctx.py_subinterpreters[i];
+	while (py_ctx.interpreter_count != 0) {
+            PyThreadState *py_interpreter =
+		py_ctx.py_subinterpreters[--py_ctx.interpreter_count];
             PyThreadState_Swap(py_interpreter);
             Py_EndInterpreter(py_interpreter);
         }

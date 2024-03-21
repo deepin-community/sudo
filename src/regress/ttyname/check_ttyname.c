@@ -24,7 +24,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <stdlib.h>
 #include <string.h>
@@ -32,10 +32,10 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_util.h"
-#include "sudo_debug.h"
+#include <sudo_compat.h>
+#include <sudo_fatal.h>
+#include <sudo_util.h>
+#include <sudo_debug.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -91,6 +91,7 @@ main(int argc, char *argv[])
 #if defined(HAVE_KINFO_PROC2_NETBSD) || \
     defined(HAVE_KINFO_PROC_OPENBSD) || \
     defined(HAVE_KINFO_PROC_FREEBSD) || \
+    defined(HAVE_KINFO_PROC_DFLY) || \
     defined(HAVE_KINFO_PROC_44BSD) || \
     defined(HAVE__TTYNAME_DEV) || defined(HAVE_STRUCT_PSINFO_PR_TTYDEV) || \
     defined(HAVE_PSTAT_GETPROC) || defined(__linux__)

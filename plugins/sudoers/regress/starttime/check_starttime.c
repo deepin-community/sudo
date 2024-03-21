@@ -25,12 +25,14 @@
 #include <time.h>
 #include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_util.h"
-#include "sudo_fatal.h"
-#include "check.h"
+#include <sudo_compat.h>
+#include <sudo_util.h>
+#include <sudo_fatal.h>
+#include <timestamp.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
+
+#if defined(sudo_kinfo_proc) || defined(__linux__) || defined(HAVE_STRUCT_PSINFO_PR_TTYDEV) || defined(HAVE_PSTAT_GETPROC) || defined(__gnu_hurd__)
 
 #ifdef __linux__
 static int
@@ -78,18 +80,38 @@ get_now(struct timespec *now)
 int
 main(int argc, char *argv[])
 {
-    int ntests = 0, errors = 0;
+    int ch, ntests = 0, errors = 0;
     struct timespec now, then, delta;
+    time_t timeoff = 0;
     pid_t pids[2];
-    int i;
+    char *faketime;
+    unsigned int i;
 
     initprogname(argc > 0 ? argv[0] : "check_starttime");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignored */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     if (get_now(&now) == -1)
 	sudo_fatal_nodebug("unable to get current time");
 
     pids[0] = getpid();
     pids[1] = getppid();
+
+    /* Debian CI pipeline runs tests using faketime. */
+    faketime = getenv("FAKETIME");
+    if (faketime != NULL)
+	timeoff = sudo_strtonum(faketime, TIME_T_MIN, TIME_T_MAX, NULL);
 
     for (i = 0; i < 2; i++) {
 	ntests++;
@@ -104,6 +126,7 @@ main(int argc, char *argv[])
 	/* Verify our own process start time, allowing for some drift. */
 	ntests++;
 	sudo_timespecsub(&then, &now, &delta);
+	delta.tv_sec += timeoff;
 	if (delta.tv_sec > 30 || delta.tv_sec < -30) {
 	    printf("%s: test %d: unexpected start time for pid %d: %s",
 		getprogname(), ntests, (int)pids[i], ctime(&then.tv_sec));
@@ -116,5 +139,16 @@ main(int argc, char *argv[])
 	    getprogname(), ntests, errors, (ntests - errors) * 100 / ntests);
     }
 
-    exit(errors);
+    return errors;
 }
+
+#else
+
+int
+main(int argc, char *argv[])
+{
+    /* get_starttime not supported */
+    return 0;
+}
+
+#endif

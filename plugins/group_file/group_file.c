@@ -30,7 +30,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <string.h>
 #ifdef HAVE_STRINGS_H
@@ -41,8 +41,8 @@
 #include <fcntl.h>
 #include <grp.h>
 
-#include "sudo_plugin.h"
-#include "sudo_compat.h"
+#include <sudo_plugin.h>
+#include <sudo_compat.h>
 
 /*
  * Sample sudoers group plugin that uses an extra group file with the
@@ -52,7 +52,7 @@
 static sudo_printf_t sudo_log;
 
 extern void mysetgrfile(const char *);
-extern void mysetgrent(void);
+extern int mysetgroupent(int);
 extern void myendgrent(void);
 extern struct group *mygetgrnam(const char *);
 
@@ -89,7 +89,8 @@ sample_init(int version, sudo_printf_t sudo_printf, char *const argv[])
     }
 
     mysetgrfile(argv[0]);
-    mysetgrent();
+    if (!mysetgroupent(1))
+	return false;
 
     return true;
 }

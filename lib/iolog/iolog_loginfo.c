@@ -28,20 +28,20 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_eventlog.h"
-#include "sudo_fatal.h"
-#include "sudo_gettext.h"
-#include "sudo_json.h"
-#include "sudo_iolog.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_eventlog.h>
+#include <sudo_fatal.h>
+#include <sudo_gettext.h>
+#include <sudo_json.h>
+#include <sudo_iolog.h>
+#include <sudo_util.h>
 
 struct eventlog *
 iolog_parse_loginfo(int dfd, const char *iolog_dir)
@@ -131,7 +131,7 @@ iolog_write_info_file_legacy(int dfd, struct eventlog *evlog)
 	evlog->lines, evlog->columns,
 	evlog->cwd ? evlog->cwd : "unknown");
     fputs(evlog->command ? evlog->command : "unknown", fp);
-    for (av = evlog->argv + 1; *av != NULL; av++) {
+    for (av = evlog->runargv + 1; *av != NULL; av++) {
 	fputc(' ', fp);
 	fputs(*av, fp);
     }
@@ -153,34 +153,34 @@ iolog_write_info_file_legacy(int dfd, struct eventlog *evlog)
 static bool
 iolog_write_info_file_json(int dfd, struct eventlog *evlog)
 {
-    struct json_container json;
+    struct json_container jsonc;
     struct json_value json_value;
     bool ret = false;
     FILE *fp = NULL;
     int fd = -1;
     debug_decl(iolog_write_info_file_json, SUDO_DEBUG_UTIL);
 
-    if (!sudo_json_init(&json, 4, false, false))
+    if (!sudo_json_init(&jsonc, 4, false, false, false))
 	debug_return_bool(false);
 
     /* Timestamp */
-    if (!sudo_json_open_object(&json, "timestamp"))
+    if (!sudo_json_open_object(&jsonc, "timestamp"))
 	goto oom;
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = evlog->submit_time.tv_sec;
-    if (!sudo_json_add_value(&json, "seconds", &json_value))
+    if (!sudo_json_add_value(&jsonc, "seconds", &json_value))
         goto oom;
 
     json_value.type = JSON_NUMBER;
     json_value.u.number = evlog->submit_time.tv_nsec;
-    if (!sudo_json_add_value(&json, "nanoseconds", &json_value))
+    if (!sudo_json_add_value(&jsonc, "nanoseconds", &json_value))
         goto oom;
 
-    if (!sudo_json_close_object(&json))
+    if (!sudo_json_close_object(&jsonc))
 	goto oom;
 
-    if (!eventlog_store_json(&json, evlog))
+    if (!eventlog_store_json(&jsonc, evlog))
 	goto done;
 
     fd = iolog_openat(dfd, "log.json", O_CREAT|O_TRUNC|O_WRONLY);
@@ -197,7 +197,7 @@ iolog_write_info_file_json(int dfd, struct eventlog *evlog)
     }
     fd = -1;
 
-    fprintf(fp, "{%s\n}\n", sudo_json_get_buf(&json));
+    fprintf(fp, "{%s\n}\n", sudo_json_get_buf(&jsonc));
     fflush(fp);
     if (ferror(fp)) {
 	sudo_debug_printf(SUDO_DEBUG_ERROR|SUDO_DEBUG_LINENO|SUDO_DEBUG_ERRNO,
@@ -211,7 +211,7 @@ iolog_write_info_file_json(int dfd, struct eventlog *evlog)
 oom:
     sudo_warnx(U_("%s: %s"), __func__, U_("unable to allocate memory"));
 done:
-    sudo_json_free(&json);
+    sudo_json_free(&jsonc);
     if (fp != NULL)
 	fclose(fp);
     if (fd != -1)

@@ -23,16 +23,13 @@
 
 #include "../pyhelpers.h"
 
-#include "sudo_conf.h"
+#include <sudo_conf.h>
 
 // just for the IDE
 #ifndef SRC_DIR
 #define SRC_DIR ""
 #endif
 #define TESTDATA_DIR SRC_DIR "/regress/testdata/"
-
-extern const char *sudo_conf_developer_mode;
-extern const char *sudo_conf_normal_mode;
 
 #define TEMP_PATH_TEMPLATE "/tmp/sudo_check_python_exampleXXXXXX"
 
@@ -75,7 +72,7 @@ char ** create_str_array(size_t count, ...);
             success = 0; \
         } \
         if (!cleanup(success)) { \
-            printf("FAILED: deitialization of testcase %s at %s:%d\n", #testcase, __FILE__, __LINE__); \
+            printf("FAILED: deinitialization of testcase %s at %s:%d\n", #testcase, __FILE__, __LINE__); \
             success = 0; \
         } \
         if (!success) { \
@@ -157,7 +154,7 @@ int fake_conversation(int num_msgs, const struct sudo_conv_message msgs[],
 int fake_conversation_with_suspend(int num_msgs, const struct sudo_conv_message msgs[],
                                    struct sudo_conv_reply replies[], struct sudo_conv_callback *callback);
 
-int fake_printf(int msg_type, const char *fmt, ...);
+int fake_printf(int msg_type, const char * restrict fmt, ...);
 
 int verify_log_lines(const char *reference_path);
 

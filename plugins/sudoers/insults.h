@@ -22,13 +22,13 @@
 
 #if defined(HAL_INSULTS) || defined(GOONS_INSULTS) || defined(CLASSIC_INSULTS) || defined(CSOPS_INSULTS) || defined(PYTHON_INSULTS)
 
-#include "sudo_rand.h"
+#include <sudo_rand.h>
 
 /*
  * Use one or more set of insults as determined by configure
  */
 
-char *insults[] = {
+const char *insults[] = {
 
 # ifdef HAL_INSULTS
 #  include "ins_2001.h"

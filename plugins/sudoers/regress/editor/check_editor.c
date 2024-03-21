@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2021-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -24,17 +24,17 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudoers.h"
+#include <sudoers.h>
 #include <def_data.c>
 
 /* Note hard-coded array lengths. */
 struct test_data {
-    char *editor_var;
+    const char *editor_var;
     int nfiles;
-    char *files[4];
-    char *editor_path;
+    const char *files[4];
+    const char *editor_path;
     int edit_argc;
-    char *edit_argv[10];
+    const char *edit_argv[10];
 } test_data[] = {
     {
 	/* Bug #942 */
@@ -63,6 +63,15 @@ struct test_data {
 	3,
 	{ "/usr/bin/vi\\", "--", "/etc/hosts", "/bogus/file", NULL }
     },
+    {
+	/* GitHub issue #179 */
+	"EDITOR=sed -rie s/^\\\\(foo\\\\)/waldo\\\\1/",
+	1,
+	{ "/etc/sudoers", NULL },
+	"/usr/bin/sed",
+	5,
+	{ "sed", "-rie", "s/^\\(foo\\)/waldo\\1/", "--", "/etc/sudoers", NULL }
+    },
     { NULL }
 };
 
@@ -71,8 +80,7 @@ sudo_dso_public int main(int argc, char *argv[]);
 /* STUB */
 int
 find_path(const char *infile, char **outfile, struct stat *sbp,
-    const char *path, const char *runchroot, int ignore_dot,
-    char * const *allowlist)
+    const char *path, bool ignore_dot, char * const *allowlist)
 {
     if (infile[0] == '/') {
 	*outfile = strdup(infile);
@@ -89,9 +97,22 @@ int
 main(int argc, char *argv[])
 {
     struct test_data *data;
-    int ntests = 0, errors = 0;
+    int ch, ntests = 0, errors = 0;
 
     initprogname(argc > 0 ? argv[0] : "check_editor");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignored */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     for (data = test_data; data->editor_var != NULL; data++) {
 	const char *env_editor = NULL;
@@ -99,13 +120,13 @@ main(int argc, char *argv[])
 	int i, edit_argc = 0;
 
 	/* clear existing editor environment vars */
-	putenv("VISUAL=");
-	putenv("EDITOR=");
-	putenv("SUDO_EDITOR=");
+	putenv((char *)"VISUAL=");
+	putenv((char *)"EDITOR=");
+	putenv((char *)"SUDO_EDITOR=");
 
-	putenv(data->editor_var);
-	editor_path = find_editor(data->nfiles, data->files, &edit_argc,
-	    &edit_argv, NULL, &env_editor);
+	putenv((char *)data->editor_var);
+	editor_path = find_editor(data->nfiles, (char **)data->files,
+	    &edit_argc, &edit_argv, NULL, &env_editor);
 	ntests++;
 	if (strcmp(editor_path, data->editor_path) != 0) {
 	    sudo_warnx("test %d: editor_path: expected \"%s\", got \"%s\"",

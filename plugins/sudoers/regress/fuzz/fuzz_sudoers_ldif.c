@@ -26,17 +26,16 @@
 # include <inttypes.h>
 #endif
 
-#include "sudoers.h"
+#include <sudoers.h>
 
-static int fuzz_printf(int msg_type, const char *fmt, ...);
+static int fuzz_printf(int msg_type, const char * restrict fmt, ...);
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
 
 /* Required to link with parser. */
-struct sudo_user sudo_user;
-struct passwd *list_pw;
 sudo_printf_t sudo_printf = fuzz_printf;
 
 FILE *
-open_sudoers(const char *file, bool doedit, bool *keepopen)
+open_sudoers(const char *file, char **outfile, bool doedit, bool *keepopen)
 {
     /*
      * If we allow the fuzzer to choose include paths it will
@@ -47,7 +46,7 @@ open_sudoers(const char *file, bool doedit, bool *keepopen)
 }
 
 static int
-fuzz_printf(int msg_type, const char *fmt, ...)
+fuzz_printf(int msg_type, const char * restrict fmt, ...)
 {
     return 0;
 }
@@ -59,9 +58,9 @@ init_envtables(void)
 }
 
 int
-set_cmnd_path(const char *runchroot)
+set_cmnd_path(struct sudoers_context *ctx, const char *runchroot)
 {
-    /* Cannot return FOUND without also setting user_cmnd to a new value. */
+    /* Cannot return FOUND without also setting ctx->user.cmnd to a new value. */
     return NOT_FOUND;
 }
 
@@ -120,6 +119,7 @@ fuzz_conversation(int num_msgs, const struct sudo_conv_message msgs[],
 int
 LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
+    struct sudoers_context ctx = { { NULL } };
     struct sudoers_parse_tree parse_tree;
     FILE *fp;
 
@@ -131,15 +131,15 @@ LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     if (fp == NULL)
         return 0;
 
-    setprogname("fuzz_sudoers_ldif");
+    initprogname("fuzz_sudoers_ldif");
     sudoers_debug_register(getprogname(), NULL);
     if (getenv("SUDO_FUZZ_VERBOSE") == NULL)
 	sudo_warn_set_conversation(fuzz_conversation);
 
     /* Initialize defaults and parse LDIF-format sudoers. */
     init_defaults();
-    init_parse_tree(&parse_tree, NULL, NULL);
-    sudoers_parse_ldif(&parse_tree, fp, NULL, true);
+    init_parse_tree(&parse_tree, NULL, NULL, &ctx, NULL);
+    sudoers_parse_ldif(&parse_tree, fp, "ou=SUDOers,dc=sudo,dc=ws", true);
 
     /* Cleanup. */
     free_parse_tree(&parse_tree);

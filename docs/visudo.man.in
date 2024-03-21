@@ -2,7 +2,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 1996,1998-2005, 2007-2022
+.\" Copyright (c) 1996,1998-2005, 2007-2023
 .\"	Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -21,7 +21,7 @@
 .\" Agency (DARPA) and Air Force Research Laboratory, Air Force
 .\" Materiel Command, USAF, under agreement number F39502-99-1-0512.
 .\"
-.TH "VISUDO" "@mansectsu@" "February 16, 2022" "Sudo @PACKAGE_VERSION@" "System Manager's Manual"
+.TH "VISUDO" "@mansectsu@" "July 27, 2023" "Sudo @PACKAGE_VERSION@" "System Manager's Manual"
 .nh
 .if n .ad l
 .SH "NAME"
@@ -30,7 +30,7 @@
 .SH "SYNOPSIS"
 .HP 7n
 \fBvisudo\fR
-[\fB\-chOPqsV\fR]
+[\fB\-chIOPqsV\fR]
 [[\fB\-f\fR]\ \fIsudoers\fR]
 .SH "DESCRIPTION"
 \fBvisudo\fR
@@ -46,6 +46,11 @@ and checks for syntax errors before installing the edited file.
 If the
 \fIsudoers\fR
 file is currently being edited you will receive a message to try again later.
+.PP
+If the
+\fIsudoers\fR
+file does not exist, it will be created unless the editor exits
+without writing to the file.
 .PP
 \fBvisudo\fR
 parses the
@@ -84,7 +89,7 @@ There are two
 settings that determine which editor
 \fBvisudo\fR
 will run.
-.TP 10n
+.TP 12n
 editor
 A colon
 (\(oq:\&\(cq)
@@ -116,7 +121,7 @@ The default editor path is
 which can be set at compile time via the
 \fR--with-editor\fR
 configure option.
-.TP 10n
+.TP 12n
 env_editor
 If set,
 \fBvisudo\fR
@@ -132,7 +137,7 @@ is typically run as root so this option may allow a user with
 privileges to run arbitrary commands as root without logging.
 An alternative is to place a colon-separated list of
 \(lqsafe\(rq
-editors int the
+editors in the
 \fIeditor\fR
 variable.
 \fBvisudo\fR
@@ -165,7 +170,7 @@ which can be set at compile time via the
 configure option.
 .PP
 The options are as follows:
-.TP 12n
+.TP 8n
 \fB\-c\fR, \fB\--check\fR
 Enable
 \fIcheck-only\fR
@@ -194,7 +199,7 @@ will exit with a value of 0.
 If an error is encountered,
 \fBvisudo\fR
 will exit with a value of 1.
-.TP 12n
+.TP 8n
 \fB\-f\fR \fIsudoers\fR, \fB\--file\fR=\fIsudoers\fR
 Specify an alternate
 \fIsudoers\fR
@@ -204,10 +209,28 @@ As of version 1.8.27, the
 path can be specified without using the
 \fB\-f\fR
 option.
-.TP 12n
+.TP 8n
 \fB\-h\fR, \fB\--help\fR
 Display a short help message to the standard output and exit.
-.TP 12n
+.TP 8n
+\fB\-I\fR, \fB\--no-includes\fR
+Disable the editing of include files unless there is a pre-existing
+syntax error.
+By default,
+\fBvisudo\fR
+will edit the main
+\fIsudoers\fR
+file and any files included via
+\fI@include\fR
+or
+\fI#include\fR
+directives.
+Files included via
+\fI@includedir\fR
+or
+\fI#includedir\fR
+are never edited unless they contain a syntax error.
+.TP 8n
 \fB\-O\fR, \fB\--owner\fR
 Enforce the default ownership (user and group) of the
 \fIsudoers\fR
@@ -219,7 +242,7 @@ an error will be reported if the owner is incorrect.
 This option is enabled by default if the
 \fIsudoers\fR
 file was not specified.
-.TP 12n
+.TP 8n
 \fB\-P\fR, \fB\--perms\fR
 Enforce the default permissions (mode) of the
 \fIsudoers\fR
@@ -231,7 +254,7 @@ an error will be reported if the file permissions are incorrect.
 This option is enabled by default if the
 \fIsudoers\fR
 file was not specified.
-.TP 12n
+.TP 8n
 \fB\-q\fR, \fB\--quiet\fR
 Enable
 \fIquiet\fR
@@ -241,7 +264,7 @@ This option is only useful when combined with
 the
 \fB\-c\fR
 option.
-.TP 12n
+.TP 8n
 \fB\-s\fR, \fB\--strict\fR
 Enable
 \fIstrict\fR
@@ -257,7 +280,7 @@ name or user name that consists solely of uppercase letters, digits,
 and the underscore
 (\(oq_\(cq)
 character.
-.TP 12n
+.TP 8n
 \fB\-V\fR, \fB\--version\fR
 Print the
 \fBvisudo\fR
@@ -289,7 +312,7 @@ include file for syntax errors.
 \fBvisudo\fR
 versions 1.8.4 and higher support a flexible debugging framework
 that is configured via
-\fRDebug\fR
+\fIDebug\fR
 lines in the
 sudo.conf(@mansectform@)
 file.
@@ -305,37 +328,37 @@ plugin to override the default
 path name, user-ID, group-ID, and file mode.
 These arguments, if present, should be listed after the path to the plugin
 (i.e., after
-\fIsudoers.so\fR).
+\fI@sudoers_plugin@\fR).
 Multiple arguments may be specified, separated by white space.
 For example:
 .nf
 .sp
 .RS 4n
-Plugin sudoers_policy sudoers.so sudoers_mode=0400
+Plugin sudoers_policy @sudoers_plugin@ sudoers_mode=0400
 .RE
 .fi
 .PP
 The following arguments are supported:
-.TP 10n
+.TP 6n
 sudoers_file=pathname
 The
 \fIsudoers_file\fR
 argument can be used to override the default path to the
 \fIsudoers\fR
 file.
-.TP 10n
+.TP 6n
 sudoers_uid=user-ID
 The
 \fIsudoers_uid\fR
 argument can be used to override the default owner of the sudoers file.
 It should be specified as a numeric user-ID.
-.TP 10n
+.TP 6n
 sudoers_gid=group-ID
 The
 \fIsudoers_gid\fR
 argument can be used to override the default group of the sudoers file.
 It must be specified as a numeric group-ID (not a group name).
-.TP 10n
+.TP 6n
 sudoers_mode=mode
 The
 \fIsudoers_mode\fR
@@ -446,11 +469,38 @@ the
 \fIsudoers\fR
 file.
 .TP 6n
+\fRignoring editor backup file\fR
+While processing a
+\fI@includedir\fR
+or
+\fI#includedir\fR,
+a file was found with a name that ends in
+\(oq~\(cq
+or
+\fI.bak\fR.
+Such files are skipped by
+\fBsudo\fR
+and
+\fBvisudo\fR.
+.TP 6n
+\fRignoring file name containing '.'\fR
+While processing a
+\fI@includedir\fR
+or
+\fI#includedir\fR,
+a file was found with a name that contains a
+\(oq.\&\(cq
+character.
+Such files are skipped by
+\fBsudo\fR
+and
+\fBvisudo\fR.
+.TP 6n
 \fRunknown defaults entry \&"name\&"\fR
 The
 \fIsudoers\fR
 file contains a
-\fRDefaults\fR
+\fIDefaults\fR
 setting not recognized by
 \fBvisudo\fR.
 .SH "SEE ALSO"

@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2009-2021 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2009-2022 Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -33,8 +33,8 @@
 #endif
 #include <errno.h>
 
-#include "sudo.h"
-#include "sudo_exec.h"
+#include <sudo.h>
+#include <sudo_exec.h>
 
 /*
  * Disable execution of child processes in the command we are about
@@ -95,7 +95,7 @@ enable_intercept(char *envp[], const char *dso, int intercept_fd)
  */
 int
 sudo_execve(int fd, const char *path, char *const argv[], char *envp[],
-    int intercept_fd, int flags)
+    int intercept_fd, unsigned int flags)
 {
     debug_decl(sudo_execve, SUDO_DEBUG_UTIL);
 
@@ -104,8 +104,12 @@ sudo_execve(int fd, const char *path, char *const argv[], char *envp[],
     /* Modify the environment as needed to trap execve(). */
     if (ISSET(flags, CD_NOEXEC))
 	envp = disable_execute(envp, sudo_conf_noexec_path());
-    else if (ISSET(flags, CD_INTERCEPT|CD_LOG_SUBCMDS))
-	envp = enable_intercept(envp, sudo_conf_intercept_path(), intercept_fd);
+    if (ISSET(flags, CD_INTERCEPT|CD_LOG_SUBCMDS)) {
+	if (!ISSET(flags, CD_USE_PTRACE)) {
+	    envp = enable_intercept(envp, sudo_conf_intercept_path(),
+		intercept_fd);
+	}
+    }
 
 #ifdef HAVE_FEXECVE
     if (fd != -1)
@@ -115,16 +119,16 @@ sudo_execve(int fd, const char *path, char *const argv[], char *envp[],
 	    execve(path, argv, envp);
     if (fd == -1 && errno == ENOEXEC) {
 	int argc;
-	char **nargv;
+	const char **nargv;
 
 	for (argc = 0; argv[argc] != NULL; argc++)
 	    continue;
-	nargv = reallocarray(NULL, argc + 2, sizeof(char *));
+	nargv = reallocarray(NULL, (size_t)argc + 2, sizeof(char *));
 	if (nargv != NULL) {
 	    nargv[0] = "sh";
-	    nargv[1] = (char *)path;
-	    memcpy(nargv + 2, argv + 1, argc * sizeof(char *));
-	    execve(_PATH_SUDO_BSHELL, nargv, envp);
+	    nargv[1] = path;
+	    memcpy(nargv + 2, argv + 1, (size_t)argc * sizeof(char *));
+	    execve(_PATH_SUDO_BSHELL, (char **)nargv, envp);
 	    free(nargv);
 	}
     }

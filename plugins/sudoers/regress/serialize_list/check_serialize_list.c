@@ -24,7 +24,7 @@
 
 #define SUDO_ERROR_WRAP 0
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -38,9 +38,9 @@ test_serialize_list(int *ntests_out, int *errors_out)
     struct list_member lm1, lm2, lm3;
     char *result;
 
-    lm1.value = "a value with spaces";
-    lm2.value = "this,and,that";
-    lm3.value = ",";
+    lm1.value = (char *)"a value with spaces";
+    lm2.value = (char *)"this,and,that";
+    lm3.value = (char *)",";
     SLIST_INSERT_HEAD(&members, &lm3, entries);
     SLIST_INSERT_HEAD(&members, &lm2, entries);
     SLIST_INSERT_HEAD(&members, &lm1, entries);
@@ -60,6 +60,7 @@ test_serialize_list(int *ntests_out, int *errors_out)
     }
 
 done:
+    free(result);
     *ntests_out = ntests;
     *errors_out = errors;
 }
@@ -67,9 +68,22 @@ done:
 int
 main(int argc, char *argv[])
 {
-    int ntests = 0, errors = 0;
+    int ch, ntests = 0, errors = 0;
 
     initprogname(argc > 0 ? argv[0] : "check_serialize_list");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignored */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     test_serialize_list(&ntests, &errors);
 

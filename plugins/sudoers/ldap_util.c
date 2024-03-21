@@ -34,11 +34,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#include "sudoers.h"
-#include "interfaces.h"
-#include "sudo_lbuf.h"
-#include "sudo_ldap.h"
-#include "sudo_digest.h"
+#include <sudoers.h>
+#include <interfaces.h>
+#include <sudo_lbuf.h>
+#include <sudo_ldap.h>
+#include <sudo_digest.h>
 #include <gram.h>
 
 /*
@@ -77,7 +77,7 @@ sudo_ldap_parse_option(char *optstr, char **varp, char **valp)
 
     /* check for equals sign past first char */
     cp = strchr(var, '=');
-    if (cp > var) {
+    if (cp != NULL && cp > var) {
 	val = cp + 1;
 	op = cp[-1];	/* peek for += or -= cases */
 	if (op == '+' || op == '-') {
@@ -253,7 +253,7 @@ sudo_ldap_extract_digest(const char *cmnd, char **endptr,
 {
     const char *ep, *cp = cmnd;
     struct command_digest *digest;
-    int digest_type = SUDO_DIGEST_INVALID;
+    unsigned int digest_type = SUDO_DIGEST_INVALID;
     debug_decl(sudo_ldap_extract_digest, SUDOERS_DEBUG_LDAP);
 
     /*
@@ -631,4 +631,120 @@ sudo_ldap_new_member_all(void)
     if ((m = calloc(1, sizeof(*m))) != NULL)
 	m->type = ALL;
     debug_return_ptr(m);
+}
+
+/*
+ * Determine length of query value after escaping characters
+ * as per RFC 4515.
+ */
+size_t
+sudo_ldap_value_len(const char *value)
+{
+    const char *s;
+    size_t len = 0;
+
+    for (s = value; *s != '\0'; s++) {
+	switch (*s) {
+	case '\\':
+	case '(':
+	case ')':
+	case '*':
+	    len += 2;
+	    break;
+	}
+    }
+    len += (size_t)(s - value);
+    return len;
+}
+
+/*
+ * Like strlcat() but escapes characters as per RFC 4515.
+ */
+size_t
+sudo_ldap_value_cat(char * restrict dst, const char * restrict src, size_t size)
+{
+    char *d = dst;
+    const char *s = src;
+    size_t n = size;
+    size_t dlen;
+
+    /* Find the end of dst and adjust bytes left but don't go past end */
+    while (n-- != 0 && *d != '\0')
+	d++;
+    dlen = (size_t)(d - dst);
+    n = size - dlen;
+
+    if (n == 0)
+	return dlen + strlen(s);
+    while (*s != '\0') {
+	switch (*s) {
+	case '\\':
+	    if (n < 3)
+		goto done;
+	    *d++ = '\\';
+	    *d++ = '5';
+	    *d++ = 'c';
+	    n -= 3;
+	    break;
+	case '(':
+	    if (n < 3)
+		goto done;
+	    *d++ = '\\';
+	    *d++ = '2';
+	    *d++ = '8';
+	    n -= 3;
+	    break;
+	case ')':
+	    if (n < 3)
+		goto done;
+	    *d++ = '\\';
+	    *d++ = '2';
+	    *d++ = '9';
+	    n -= 3;
+	    break;
+	case '*':
+	    if (n < 3)
+		goto done;
+	    *d++ = '\\';
+	    *d++ = '2';
+	    *d++ = 'a';
+	    n -= 3;
+	    break;
+	default:
+	    if (n < 1)
+		goto done;
+	    *d++ = *s;
+	    n--;
+	    break;
+	}
+	s++;
+    }
+done:
+    *d = '\0';
+    while (*s != '\0')
+	s++;
+    return dlen + (size_t)(s - src);	/* count does not include NUL */
+}
+
+/*
+ * Like strdup() but escapes characters as per RFC 4515.
+ */
+char *
+sudo_ldap_value_dup(const char *src)
+{
+    char *dst;
+    size_t size;
+
+    size = sudo_ldap_value_len(src) + 1;
+    dst = malloc(size);
+    if (dst == NULL)
+	return NULL;
+
+    *dst = '\0';
+    if (sudo_ldap_value_cat(dst, src, size) >= size) {
+	/* Should not be possible... */
+	free(dst);
+	dst = NULL;
+    }
+    return dst;
 }

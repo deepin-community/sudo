@@ -132,7 +132,6 @@ python_plugin_policy_check(int argc, char * const argv[],
                               &PyTuple_Type, &py_argv_out,
                               &PyTuple_Type, &py_user_env_out))
         {
-            rc = SUDO_RC_ERROR;
             goto cleanup;
         }
     } else {
@@ -203,7 +202,7 @@ python_plugin_policy_version(int verbose)
                                                 verbose, PY_POLICY_PLUGIN_VERSION, "policy"));
 }
 
-int
+static int
 python_plugin_policy_validate(const char **errstr)
 {
     debug_decl(python_plugin_policy_validate, PYTHON_DEBUG_CALLBACKS);
@@ -213,7 +212,7 @@ python_plugin_policy_validate(const char **errstr)
     debug_return_int(rc);
 }
 
-void
+static void
 python_plugin_policy_invalidate(int unlinkit)
 {
     debug_decl(python_plugin_policy_invalidate, PYTHON_DEBUG_CALLBACKS);
@@ -223,7 +222,7 @@ python_plugin_policy_invalidate(int unlinkit)
     debug_return;
 }
 
-int
+static int
 python_plugin_policy_init_session(struct passwd *pwd, char **user_env[], const char **errstr)
 {
     debug_decl(python_plugin_policy_init_session, PYTHON_DEBUG_CALLBACKS);

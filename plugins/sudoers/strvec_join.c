@@ -27,7 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 
 #ifdef HAVE_STRLCPY
 # define cpy_default	strlcpy
@@ -68,7 +68,7 @@ strvec_join(char *const argv[], char sep, size_t (*cpy)(char *, const char *, si
 	*dst++ = sep;
 	size--;
     }
-    *--dst = '\0';
+    dst[-1] = '\0';
 
     debug_return_str(result);
 }

@@ -25,7 +25,7 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif /* HAVE_STDBOOL_H */
 #include <string.h>
 #ifdef HAVE_WORDEXP_H
@@ -36,15 +36,15 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_util.h"
-#include "sudo_exec.h"
+#include <sudo_compat.h>
+#include <sudo_fatal.h>
+#include <sudo_util.h>
+#include <sudo_queue.h>
+#include <sudo_exec.h>
 
 static bool verbose;
 
 sudo_dso_public int main(int argc, char *argv[], char *envp[]);
-static void usage(void) __attribute__((__noreturn__));
 
 static bool
 report_status(int status, const char *what)
@@ -179,7 +179,7 @@ try_wordexp(void)
 }
 #endif
 
-static void
+sudo_noreturn static void
 usage(void)
 {
     fprintf(stderr, "usage: %s [-v] rexec | /path/to/sudo_noexec.so\n",
@@ -210,7 +210,7 @@ main(int argc, char *argv[], char *envp[])
     /* Disable execution for post-exec and re-exec ourself. */
     if (strcmp(argv[optind], "rexec") != 0) {
 	const char *noexec = argv[optind];
-	argv[optind] = "rexec";
+	argv[optind] = (char *)"rexec";
 	execve(argv[0], argv, disable_execute(envp, noexec));
 	sudo_fatalx_nodebug("execve");
     }

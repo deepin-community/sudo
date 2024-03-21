@@ -1,7 +1,7 @@
 .\"
 .\" SPDX-License-Identifier: ISC
 .\"
-.\" Copyright (c) 1996,1998-2005, 2007-2022
+.\" Copyright (c) 1996,1998-2005, 2007-2023
 .\"	Todd C. Miller <Todd.Miller@sudo.ws>
 .\"
 .\" Permission to use, copy, modify, and distribute this software for any
@@ -20,7 +20,7 @@
 .\" Agency (DARPA) and Air Force Research Laboratory, Air Force
 .\" Materiel Command, USAF, under agreement number F39502-99-1-0512.
 .\"
-.Dd February 16, 2022
+.Dd July 27, 2023
 .Dt VISUDO @mansectsu@
 .Os Sudo @PACKAGE_VERSION@
 .Sh NAME
@@ -28,7 +28,7 @@
 .Nd edit the sudoers file
 .Sh SYNOPSIS
 .Nm visudo
-.Op Fl chOPqsV
+.Op Fl chIOPqsV
 .Op Bo Fl f Bc Ar sudoers
 .Sh DESCRIPTION
 .Nm
@@ -44,6 +44,11 @@ and checks for syntax errors before installing the edited file.
 If the
 .Em sudoers
 file is currently being edited you will receive a message to try again later.
+.Pp
+If the
+.Em sudoers
+file does not exist, it will be created unless the editor exits
+without writing to the file.
 .Pp
 .Nm
 parses the
@@ -82,7 +87,7 @@ There are two
 settings that determine which editor
 .Nm visudo
 will run.
-.Bl -tag -width 8n
+.Bl -tag -width "env_editor"
 .It editor
 A colon
 .Pq Ql :\&
@@ -129,7 +134,7 @@ is typically run as root so this option may allow a user with
 privileges to run arbitrary commands as root without logging.
 An alternative is to place a colon-separated list of
 .Dq safe
-editors int the
+editors in the
 .Em editor
 variable.
 .Nm
@@ -163,7 +168,7 @@ configure option.
 .El
 .Pp
 The options are as follows:
-.Bl -tag -width Fl
+.Bl -tag -width Ds
 .It Fl c , -check
 Enable
 .Em check-only
@@ -203,6 +208,23 @@ path can be specified without using the
 option.
 .It Fl h , -help
 Display a short help message to the standard output and exit.
+.It Fl I , -no-includes
+Disable the editing of include files unless there is a pre-existing
+syntax error.
+By default,
+.Nm
+will edit the main
+.Ar sudoers
+file and any files included via
+.Em @include
+or
+.Em #include
+directives.
+Files included via
+.Em @includedir
+or
+.Em #includedir
+are never edited unless they contain a syntax error.
 .It Fl O , -owner
 Enforce the default ownership (user and group) of the
 .Em sudoers
@@ -281,7 +303,7 @@ include file for syntax errors.
 .Nm
 versions 1.8.4 and higher support a flexible debugging framework
 that is configured via
-.Li Debug
+.Em Debug
 lines in the
 .Xr sudo.conf @mansectform@
 file.
@@ -297,15 +319,15 @@ plugin to override the default
 path name, user-ID, group-ID, and file mode.
 These arguments, if present, should be listed after the path to the plugin
 (i.e., after
-.Pa sudoers.so ) .
+.Pa @sudoers_plugin@ ) .
 Multiple arguments may be specified, separated by white space.
 For example:
 .Bd -literal -offset 4n
-Plugin sudoers_policy sudoers.so sudoers_mode=0400
+Plugin sudoers_policy @sudoers_plugin@ sudoers_mode=0400
 .Ed
 .Pp
 The following arguments are supported:
-.Bl -tag -width 8n
+.Bl -tag -width 4n
 .It sudoers_file=pathname
 The
 .Em sudoers_file
@@ -426,11 +448,36 @@ will ignore cycles when parsing
 the
 .Em sudoers
 file.
+.It Li ignoring editor backup file
+While processing a
+.Em @includedir
+or
+.Em #includedir ,
+a file was found with a name that ends in
+.Ql ~
+or
+.Em .bak .
+Such files are skipped by
+.Nm sudo
+and
+.Nm .
+.It Li ignoring file name containing '.'
+While processing a
+.Em @includedir
+or
+.Em #includedir ,
+a file was found with a name that contains a
+.Ql .\&
+character.
+Such files are skipped by
+.Nm sudo
+and
+.Nm .
 .It Li unknown defaults entry \&"name\&"
 The
 .Em sudoers
 file contains a
-.Li Defaults
+.Em Defaults
 setting not recognized by
 .Nm .
 .El

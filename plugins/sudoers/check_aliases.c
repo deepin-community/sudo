@@ -1,7 +1,8 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2004-2005, 2007-2018 Todd C. Miller <Todd.Miller@sudo.ws>
+ * Copyright (c) 2004-2005, 2007-2018, 2021-2023
+ *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -28,7 +29,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "sudoers.h"
+#include <sudoers.h>
 #include <gram.h>
 
 struct alias_warned {
@@ -68,7 +69,7 @@ alias_warned_add(struct alias_warned_list *warned, char *name)
 
 static int
 check_alias(struct sudoers_parse_tree *parse_tree,
-    struct alias_warned_list *warned, char *name, int type,
+    struct alias_warned_list *warned, char *name, short type,
     char *file, int line, int column, bool strict, bool quiet)
 {
     struct member *m;
@@ -86,22 +87,14 @@ check_alias(struct sudoers_parse_tree *parse_tree,
 	}
 	alias_put(a);
     } else {
-	if (!quiet && !alias_warned(warned, name)) {
+	if (!alias_warned(warned, name)) {
 	    if (errno == ELOOP) {
-		sudo_printf(SUDO_CONV_ERROR_MSG, strict ?
-		    U_("Error: %s:%d:%d: cycle in %s \"%s\"") :
-		    U_("Warning: %s:%d:%d: cycle in %s \"%s\""),
-		    file, line, column, alias_type_to_string(type), name);
+		parser_warnx(parse_tree->ctx, file, line, column, strict, quiet,
+		    N_("cycle in %s \"%s\""), alias_type_to_string(type), name);
 	    } else {
-		sudo_printf(SUDO_CONV_ERROR_MSG, strict ?
-		    U_("Error: %s:%d:%d: %s \"%s\" referenced but not defined") :
-		    U_("Warning: %s:%d:%d: %s \"%s\" referenced but not defined"),
-		    file, line, column, alias_type_to_string(type), name);
-	    }
-	    sudo_printf(SUDO_CONV_ERROR_MSG, "\n");
-	    if (strict && errorfile == NULL) {
-		errorfile = sudo_rcstr_addref(file);
-		errorlineno = line;
+		parser_warnx(parse_tree->ctx, file, line, column, strict, quiet,
+		    N_("%s \"%s\" referenced but not defined"),
+		    alias_type_to_string(type), name);
 	    }
 	    alias_warned_add(warned, name);
 	}
@@ -114,6 +107,7 @@ check_alias(struct sudoers_parse_tree *parse_tree,
 /*
  * Iterate through the sudoers datastructures looking for undefined
  * aliases or unused aliases.
+ * In strict mode, returns the number of errors, else 0.
  */
 int
 check_aliases(struct sudoers_parse_tree *parse_tree, bool strict, bool quiet,

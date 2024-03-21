@@ -24,15 +24,15 @@
 #ifdef HAVE_STDBOOL_H
 # include <stdbool.h>
 #else
-# include "compat/stdbool.h"
+# include <compat/stdbool.h>
 #endif
 #include <time.h>
 #include <unistd.h>
 
-#include "sudo_compat.h"
-#include "sudo_fatal.h"
-#include "sudo_iolog.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_fatal.h>
+#include <sudo_iolog.h>
+#include <sudo_util.h>
 
 sudo_dso_public int main(int argc, char *argv[]);
 
@@ -45,8 +45,8 @@ struct host_port_test {
     const char *host;		/* parsed host */
     const char *port;		/* parsed port */
     bool tls;			/* parsed TLS flag */
-    char *defport;		/* default port */
-    char *defport_tls;		/* default port */
+    const char *defport;	/* default port */
+    const char *defport_tls;	/* default port */
     bool ret;			/* return value */
 };
 
@@ -78,11 +78,24 @@ static struct host_port_test test_data[] = {
 int
 main(int argc, char *argv[])
 {
-    int i, errors = 0, ntests = 0;
+    int ch, i, errors = 0, ntests = 0;
     char *host, *port, *copy = NULL;
     bool ret, tls;
 
     initprogname(argc > 0 ? argv[0] : "host_port_test");
+
+    while ((ch = getopt(argc, argv, "v")) != -1) {
+	switch (ch) {
+	case 'v':
+	    /* ignore */
+	    break;
+	default:
+	    fprintf(stderr, "usage: %s [-v]\n", getprogname());
+	    return EXIT_FAILURE;
+	}
+    }
+    argc -= optind;
+    argv += optind;
 
     for (i = 0; test_data[i].str != NULL; i++) {
 	host = port = NULL;

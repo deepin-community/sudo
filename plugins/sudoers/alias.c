@@ -1,7 +1,7 @@
 /*
  * SPDX-License-Identifier: ISC
  *
- * Copyright (c) 2004-2005, 2007-2019
+ * Copyright (c) 2004-2005, 2007-2021, 2023
  *	Todd C. Miller <Todd.Miller@sudo.ws>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -34,8 +34,8 @@
 #include <string.h>
 #include <errno.h>
 
-#include "sudoers.h"
-#include "redblack.h"
+#include <sudoers.h>
+#include <redblack.h>
 #include <gram.h>
 
 /*
@@ -66,7 +66,8 @@ alias_compare(const void *v1, const void *v2)
  * alias to mark it as unused.
  */
 struct alias *
-alias_get(struct sudoers_parse_tree *parse_tree, const char *name, int type)
+alias_get(const struct sudoers_parse_tree *parse_tree, const char *name,
+    short type)
 {
     struct alias key;
     struct rbnode *node;
@@ -113,8 +114,9 @@ alias_put(struct alias *a)
  * Returns true on success and false on failure, setting errno.
  */
 bool
-alias_add(struct sudoers_parse_tree *parse_tree, char *name, int type,
-    char *file, int line, int column, struct member *members)
+alias_add(struct sudoers_parse_tree *parse_tree, char *name,
+    short type, char *file, int line, int column,
+    struct member *members)
 {
     struct alias *a;
     debug_decl(alias_add, SUDOERS_DEBUG_ALIAS);
@@ -197,7 +199,7 @@ alias_apply(struct sudoers_parse_tree *parse_tree,
  * Returns true if there are no aliases in the parse_tree, else false.
  */
 bool
-no_aliases(struct sudoers_parse_tree *parse_tree)
+no_aliases(const struct sudoers_parse_tree *parse_tree)
 {
     debug_decl(no_aliases, SUDOERS_DEBUG_ALIAS);
     debug_return_bool(parse_tree->aliases == NULL ||
@@ -227,7 +229,8 @@ alias_free(void *v)
  * Find the named alias, remove it from the tree and return it.
  */
 struct alias *
-alias_remove(struct sudoers_parse_tree *parse_tree, const char *name, int type)
+alias_remove(struct sudoers_parse_tree *parse_tree, const char *name,
+    short type)
 {
     struct rbnode *node;
     struct alias key;
@@ -261,7 +264,7 @@ free_aliases(struct rbtree *aliases)
 }
 
 const char *
-alias_type_to_string(int alias_type)
+alias_type_to_string(short alias_type)
 {
     return alias_type == HOSTALIAS ? "Host_Alias" :
 	alias_type == CMNDALIAS ? "Cmnd_Alias" :
@@ -276,7 +279,7 @@ alias_type_to_string(int alias_type)
  */
 static bool
 alias_remove_recursive(struct sudoers_parse_tree *parse_tree, char *name,
-    int type, struct rbtree *freelist)
+    short type, struct rbtree *freelist)
 {
     struct member *m;
     struct alias *a;
@@ -298,7 +301,7 @@ alias_remove_recursive(struct sudoers_parse_tree *parse_tree, char *name,
 
 static int
 alias_find_used_members(struct sudoers_parse_tree *parse_tree,
-    struct member_list *members, int atype, struct rbtree *used_aliases)
+    struct member_list *members, short atype, struct rbtree *used_aliases)
 {
     struct member *m;
     int errors = 0;
@@ -373,5 +376,5 @@ alias_find_used(struct sudoers_parse_tree *parse_tree, struct rbtree *used_alias
 	}
     }
 
-    debug_return_int(errors ? false : true);
+    debug_return_bool(errors ? false : true);
 }
