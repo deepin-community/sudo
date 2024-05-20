@@ -1,6 +1,3 @@
-# 1004909-ftbfs-kfreebsd
-# debian-bugs-1019428
-# dont-create-ChangeLog
 spanish
 paths-in-samples.diff
 Whitelist-DPKG_COLORS-environment-variable.diff
