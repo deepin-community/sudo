@@ -29,9 +29,9 @@
 #include <termios.h>		/* for struct winsize on HP-UX */
 #include <limits.h>
 
-#include "sudo_compat.h"
-#include "sudo_debug.h"
-#include "sudo_util.h"
+#include <sudo_compat.h>
+#include <sudo_debug.h>
+#include <sudo_util.h>
 
 static int
 get_ttysize_ioctl(int fd, int *rowp, int *colp)
@@ -39,11 +39,13 @@ get_ttysize_ioctl(int fd, int *rowp, int *colp)
     struct winsize wsize;
     debug_decl(get_ttysize_ioctl, SUDO_DEBUG_UTIL);
 
-    if (fd != -1 && isatty(fd) && ioctl(fd, TIOCGWINSZ, &wsize) == 0) {
-	if (wsize.ws_row != 0 && wsize.ws_col != 0) {
-	    *rowp = wsize.ws_row;
-	    *colp = wsize.ws_col;
-	    debug_return_int(0);
+    if (fd != -1 && sudo_isatty(fd, NULL)) {
+	if (ioctl(fd, TIOCGWINSZ, &wsize) == 0) {
+	    if (wsize.ws_row != 0 && wsize.ws_col != 0) {
+		*rowp = wsize.ws_row;
+		*colp = wsize.ws_col;
+		debug_return_int(0);
+	    }
 	}
     }
     debug_return_int(-1);
@@ -65,11 +67,11 @@ sudo_get_ttysize_v2(int fd, int *rowp, int *colp)
 
 	/* Fall back on $LINES and $COLUMNS. */
 	if ((p = getenv("LINES")) == NULL ||
-	    (*rowp = sudo_strtonum(p, 1, INT_MAX, NULL)) <= 0) {
+	    (*rowp = (int)sudo_strtonum(p, 1, INT_MAX, NULL)) <= 0) {
 	    *rowp = 24;
 	}
 	if ((p = getenv("COLUMNS")) == NULL ||
-	    (*colp = sudo_strtonum(p, 1, INT_MAX, NULL)) <= 0) {
+	    (*colp = (int)sudo_strtonum(p, 1, INT_MAX, NULL)) <= 0) {
 	    *colp = 80;
 	}
     }

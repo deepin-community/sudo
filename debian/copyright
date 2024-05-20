@@ -223,8 +223,16 @@ Files: include/protobuf-c/* lib/protobuf-c/*
 Copyright: 2008-2022, Dave Benson and the protobuf-c authors
 License: BSD-2-Clause
 
+Files: m4/ax_gcc_builtin.m4
+Copyright: 2013 Gabriele Svelto <gabriele.svelto@gmail.com>
+License: other
+ Copying and distribution of this file, with or without modification, are
+ permitted in any medium without royalty provided the copyright notice
+ and this notice are preserved.  This file is offered as-is, without any
+ warranty.
+
 Files: lib/zlib/*
-Copyright: 1995-2022 Jean-loup Gailly and Mark Adler
+Copyright: 1995-2023 Jean-loup Gailly and Mark Adler
 License: Zlib
  This software is provided 'as-is', without any express or implied
  warranty.  In no event will the authors be held liable for any damages
@@ -251,6 +259,11 @@ Copyright: Bdale Garbee <bdale@gag.com>
            Hilko Bengen <bengen@debian.org>,
            Bastian Blank <waldi@debian.org>,
 License: ISC
+
+Files: debian/source_sudo.py
+Copyright: 2010 Canonical Ltd.
+	Marc Deslauriers <marc.deslauriers@canonical.com>
+License: GPL-2+
 
 License: ISC
  Permission to use, copy, modify, and/or distribute this software for
@@ -311,6 +324,23 @@ License: BSD-2-Clause
  LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
  NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+License: GPL-2+
+ This package is free software; you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 2 of the License, or
+ (at your option) any later version.
+ .
+ This package is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
+ .
+ You should have received a copy of the GNU General Public License
+ along with this program. If not, see <https://www.gnu.org/licenses/>
+ .
+ On Debian systems, the complete text of the GNU General
+ Public License version 2 can be found in "/usr/share/common-licenses/GPL-2".
 
 License: public-domain
  The files tagged with this license contains the following paragraphs:
