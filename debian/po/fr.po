@@ -1,4 +1,4 @@
-# French translation of po-debconf.
+# Translation of sudo debconf templates to French
 # Copyright (C) 2023
 # This file is distributed under the same license as the sudo package.
 # bubu <bubub@no-log.org>, 2023.

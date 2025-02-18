@@ -21,7 +21,7 @@
 
 /* API version major/minor */
 #define SUDO_API_VERSION_MAJOR 1
-#define SUDO_API_VERSION_MINOR 21
+#define SUDO_API_VERSION_MINOR 22
 #define SUDO_API_MKVERSION(x, y) (((x) << 16) | (y))
 #define SUDO_API_VERSION SUDO_API_MKVERSION(SUDO_API_VERSION_MAJOR, SUDO_API_VERSION_MINOR)
 
@@ -96,7 +96,11 @@ typedef int (*sudo_printf_t)(int msg_type, const char * restrict fmt, ...);
 #endif
 
 /* Hook functions typedefs. */
+#if defined(__STDC_VERSION__) && (__STDC_VERSION__ >= 202311L)
+typedef int (*sudo_hook_fn_t)(...);
+#else
 typedef int (*sudo_hook_fn_t)();
+#endif
 typedef int (*sudo_hook_fn_setenv_t)(const char *name, const char *value, int overwrite, void *closure);
 typedef int (*sudo_hook_fn_putenv_t)(char *string, void *closure);
 typedef int (*sudo_hook_fn_getenv_t)(const char *name, char **value, void *closure);

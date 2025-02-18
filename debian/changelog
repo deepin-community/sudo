@@ -1,3 +1,39 @@
+sudo (1.9.16p2-1) unstable; urgency=medium
+
+  * New upstream version 1.9.16p2
+
+ -- Marc Haber <mh+debian-packages@zugschlus.de>  Sun, 09 Feb 2025 20:13:12 +0100
+
+sudo (1.9.16p1-1) unstable; urgency=medium
+
+  * New upstream version 1.9.16p1
+
+ -- Marc Haber <mh+debian-packages@zugschlus.de>  Wed, 13 Nov 2024 18:08:56 +0100
+
+sudo (1.9.16-2) unstable; urgency=medium
+
+  * Upload to unstable
+
+ -- Marc Haber <mh+debian-packages@zugschlus.de>  Mon, 23 Sep 2024 08:14:18 +0200
+
+sudo (1.9.16-1) experimental; urgency=medium
+
+  * New upstream version 1.9.16
+  * update debian/copyright
+  * Streamline po-debconf translations headers
+  * Add debconf translations for Simplified and Traditional Chinese.
+    Thanks to Yangfl
+  * Update Brazilian Portuguese debconf translation.
+    Thanks to Adriano Rafael Gomes (Closes: #1068109)
+  * add patch to fix docs to correctly point to ssh-askpass
+  * remove obsolete lintian tag from overrides
+  * Standards-Version: 4.7.0 (no changes necessary)
+  * fix proper file suffixes for patches
+  * disable libapparmor-dev build dependency for non-linux arches.
+    Thanks to Sambuel Thibault (Closes: #1079659)
+
+ -- Marc Haber <mh+debian-packages@zugschlus.de>  Sun, 22 Sep 2024 21:19:01 +0200
+
 sudo (1.9.15p5-3) unstable; urgency=medium
 
   * add --with-devel configure option.

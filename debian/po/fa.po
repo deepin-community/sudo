@@ -1,4 +1,4 @@
-# Persian sudo-ldap translation.
+# Translation of sudo debconf templates to Persian
 # Copyright (C) 2023
 # This file is distributed under the same license as the sudo package.
 # Danial Behzadi <dani.behzi@ubuntu.com>, 2023.

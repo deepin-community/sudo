@@ -1,4 +1,4 @@
-# German translation of manpages
+# Translation of sudo debconf templates to German
 # This file is distributed under the same license as the sudo package.
 # Copyright (C) of this file:
 # Christoph Brinkhaus <c.brinkhaus@t-online.de>, 2023.

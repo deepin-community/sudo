@@ -1,4 +1,5 @@
-spanish
+spanish.patch
 paths-in-samples.diff
 Whitelist-DPKG_COLORS-environment-variable.diff
-sudo-ldap-docs
+sudo-ldap-docs.patch
+X11R6.patch
