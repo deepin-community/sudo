@@ -28,7 +28,7 @@ Forwarded: not-needed
  
  ## Schema Changes
  
-@@ -177,13 +163,10 @@ I recommend using any of the following L
+@@ -186,13 +172,10 @@ I recommend using any of the following L
  
    There are dozens of others, some Open Source, some free, some not.
  
@@ -45,7 +45,7 @@ Forwarded: not-needed
  
  See the "Configuring ldap.conf" section in the sudoers.ldap manual
  for a list of supported ldap.conf parameters and an example ldap.conf
-@@ -195,10 +178,7 @@ After configuring /etc/ldap.conf, you mu
+@@ -204,10 +187,7 @@ After configuring /etc/ldap.conf, you mu
  /etc/nsswitch.conf file to tell sudo to look in LDAP for sudoers.
  See the "Configuring nsswitch.conf" section in the sudoers.ldap
  manual for details.  Sudo will use /etc/nsswitch.conf even if the

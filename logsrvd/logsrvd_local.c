@@ -220,7 +220,7 @@ store_accept_local(AcceptMessage *msg, uint8_t *buf, size_t len,
 	    evlog->iolog_file = evlog->iolog_path +
 		(closure->evlog->iolog_file - closure->evlog->iolog_path);
 	}
-	sudo_timespecsub(&evlog->submit_time, &closure->evlog->submit_time,
+	sudo_timespecsub(&evlog->event_time, &closure->evlog->event_time,
 	    &evlog->iolog_offset);
     }
 
@@ -283,7 +283,7 @@ store_reject_local(RejectMessage *msg, uint8_t *buf, size_t len,
 	    evlog->iolog_file = evlog->iolog_path +
 		(closure->evlog->iolog_file - closure->evlog->iolog_path);
 	}
-	sudo_timespecsub(&evlog->submit_time, &closure->evlog->submit_time,
+	sudo_timespecsub(&evlog->event_time, &closure->evlog->event_time,
 	    &evlog->iolog_offset);
     }
 
@@ -423,7 +423,7 @@ store_exit_local(ExitMessage *msg, uint8_t *buf, size_t len,
 	    "command exited with %d", msg->exit_value);
     }
     if (logsrvd_conf_log_exit()) {
-	if (!eventlog_exit(closure->evlog, flags)) {
+	if (!eventlog_exit(evlog, flags)) {
 	    closure->errstr = _("error logging exit event");
 	    debug_return_bool(false);
 	}
