@@ -5,3 +5,4 @@ sudo-ldap-docs.patch
 X11R6.patch
 0007-upstream-patch-for-CVE-2025-32463.patch
 0008-upstream-patch-for-CVE-2025-32462.patch
+developer-mode-verify.patch
