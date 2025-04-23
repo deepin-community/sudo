@@ -1,3 +1,9 @@
+sudo (1.9.16p2-1deepin1) unstable; urgency=medium
+
+  * add develper mode verify message.
+
+ -- zhouzilong <zhouzilong@uniontech.com>  Wed, 23 Apr 2025 15:48:03 +0800
+
 sudo (1.9.16p2-1) unstable; urgency=medium
 
   * New upstream version 1.9.16p2
