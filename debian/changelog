@@ -1,3 +1,9 @@
+sudo (1.9.16p2-3+deb13u5deepin1) unstable; urgency=medium
+
+  * add develper mode verify message.
+
+ -- Tianyu Chen <sweetyfish@deepin.org>  Fri, 27 Nov 2026 16:45:08 +0800
+
 sudo (1.9.16p2-3+deb13u5) trixie; urgency=medium
 
   * bump version number to allow git-debpush to work again

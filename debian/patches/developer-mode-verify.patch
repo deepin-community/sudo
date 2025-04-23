@@ -1,0 +1,87 @@
+From 69ef2673766f4ea918a5b8290eb30db5db409a3a Mon Sep 17 00:00:00 2001
+From: zhouzilong <zhouzilong@uniontech.com>
+Date: Wed, 23 Apr 2025 15:45:55 +0800
+Subject: [PATCH] developer mode verify
+
+---
+ plugins/sudoers/auth/pam.c  |  7 +++++++
+ plugins/sudoers/po/zh_CN.po | 11 ++++++-----
+ 2 files changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/plugins/sudoers/auth/pam.c b/plugins/sudoers/auth/pam.c
+index 973d67b..d0cabc8 100644
+--- a/plugins/sudoers/auth/pam.c
++++ b/plugins/sudoers/auth/pam.c
+@@ -298,6 +298,7 @@ sudo_pam_verify(const struct sudoers_context *ctx, struct passwd *pw,
+     const char *prompt, sudo_auth *auth, struct sudo_conv_callback *callback)
+ {
+     const char *envccname, *pam_user;
++    const char *pam_item;
+     int rc, *pam_status = (int *)auth->data;
+     debug_decl(sudo_pam_verify, SUDOERS_DEBUG_AUTH);
+ 
+@@ -355,6 +356,12 @@ sudo_pam_verify(const struct sudoers_context *ctx, struct passwd *pw,
+ 	sudo_debug_printf(SUDO_DEBUG_WARN|SUDO_DEBUG_LINENO,
+ 	    "pam_authenticate: %d", *pam_status);
+ 	debug_return_int(AUTH_FAILURE);
++	case PAM_ABORT:
++	    rc = pam_get_item(pamh, PAM_SERVICE, &pam_item);
++	    if((rc == PAM_SUCCESS)&&(!strcmp(pam_item, "security-verify"))){
++		log_warningx(ctx, 0, N_("No root privileges. Please request root access in developer mode in Control Center."));
++		debug_return_int(AUTH_ERROR);
++	    }
+     default:
+ 	log_warningx(ctx, 0, N_("PAM authentication error: %s"),
+ 	    sudo_pam_strerror(pamh, *pam_status));
+diff --git a/plugins/sudoers/po/zh_CN.po b/plugins/sudoers/po/zh_CN.po
+index 00b5214..1194283 100644
+--- a/plugins/sudoers/po/zh_CN.po
++++ b/plugins/sudoers/po/zh_CN.po
+@@ -8,7 +8,7 @@ msgstr ""
+ "Project-Id-Version: sudoers 1.9.16b1\n"
+ "Report-Msgid-Bugs-To: https://bugzilla.sudo.ws\n"
+ "POT-Creation-Date: 2024-06-08 09:06-0600\n"
+-"PO-Revision-Date: 2024-06-17 14:52-0400\n"
++"PO-Revision-Date: 2025-04-23 15:36+0800\n"
+ "Last-Translator: Boyuan Yang <073plan@gmail.com>\n"
+ "Language-Team: Chinese (simplified) <i18n-zh@googlegroups.com>\n"
+ "Language: zh_CN\n"
+@@ -17,7 +17,7 @@ msgstr ""
+ "Content-Transfer-Encoding: 8bit\n"
+ "Plural-Forms: nplurals=1; plural=0;\n"
+ "X-Bugs: Report translation errors to the Language-Team address.\n"
+-"X-Generator: Poedit 3.4.4\n"
++"X-Generator: Poedit 2.2.1\n"
+ 
+ #: confstr.sh:1 gram.y:1240 plugins/sudoers/logging.c:919
+ msgid "syntax error"
+@@ -1530,6 +1530,10 @@ msgstr "无法初始化 PAM：%s"
+ msgid "PAM authentication error: %s"
+ msgstr "PAM 认证出错：%s"
+ 
++#: plugins/sudoers/auth/pam.c:362
++msgid "No root privileges. Please request root access in developer mode in Control Center."
++msgstr "无root权限，如想获得root权限可以在控制中心选择进入开发者模式"
++
+ #: plugins/sudoers/auth/pam.c:369
+ msgid "account validation failure, is your account locked?"
+ msgstr "账户验证失败，您的账户是不是上锁了？"
+@@ -3891,15 +3895,12 @@ msgstr "将忽略包含“.”字符的文件名"
+ msgid "too many levels of includes"
+ msgstr "include 嵌套层数过多"
+ 
+-#, c-format
+ #~ msgid "%s must be owned by uid %d"
+ #~ msgstr "%s 必须属于用户 ID %d"
+ 
+-#, c-format
+ #~ msgid "%s must only be writable by owner"
+ #~ msgstr "%s 必须只对所有者可写"
+ 
+-#, c-format
+ #~ msgid "timestamp owner (%s): No such user"
+ #~ msgstr "时间戳所有者(%s)：无此用户"
+ 
+-- 
+2.20.1
+
