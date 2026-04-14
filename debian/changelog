@@ -1,3 +1,10 @@
+sudo (1.9.16p2-3deepin2) unstable; urgency=medium
+
+  * Fix CVE-2026-35535: exec_mailer: Set group as well as uid when
+    running the mailer.
+
+ -- deepin-ci-robot <packages@deepin.org>  Mon, 13 Apr 2026 21:24:10 +0800
+
 sudo (1.9.16p2-3deepin1) unstable; urgency=medium
 
   [ zhouzilong ]
