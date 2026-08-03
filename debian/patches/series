@@ -5,5 +5,6 @@ sudo-ldap-docs.patch
 X11R6.patch
 0007-upstream-patch-for-CVE-2025-32463.patch
 0008-upstream-patch-for-CVE-2025-32462.patch
-developer-mode-verify.patch
-cve_2026_35535.patch
+0008-open_sudoers-Do-not-perform-path-expansion-on-files-.patch
+amd64-ibt.diff
+0006-exec_mailer-Set-group-as-well-as-uid-when-running-th.patch
