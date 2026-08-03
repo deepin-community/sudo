@@ -1,10 +1,10 @@
-Description: exec_mailer: Set group as well as uid when running the mailer.
- Also make a setuid(), setgid() or setgroups() failure fatal.
-Author: Todd C. Miller <Todd.Miller@sudo.ws>
-Origin: upstream
-Bug: https://security-tracker.debian.org/tracker/CVE-2026-35535
-Forwarded: not-needed
-Last-Update: 2026-04-13
+From: "Todd C. Miller" <Todd.Miller@sudo.ws>
+Date: Sat, 8 Nov 2025 15:34:02 -0700
+Subject: exec_mailer: Set group as well as uid when running the mailer
+
+Also make a setuid(), setgid() or setgroups() failure fatal.
+
+Found by the ZeroPath AI Security Engineer <https://zeropath.com>
 ---
  include/sudo_eventlog.h      |  3 ++-
  lib/eventlog/eventlog.c      | 21 +++++++++++++++++----
@@ -12,10 +12,11 @@ Last-Update: 2026-04-13
  plugins/sudoers/logging.c    |  2 +-
  plugins/sudoers/policy.c     |  2 +-
  5 files changed, 24 insertions(+), 8 deletions(-)
-Index: github-sudo-CVE-2026-35535/include/sudo_eventlog.h
-===================================================================
---- github-sudo-CVE-2026-35535.orig/include/sudo_eventlog.h
-+++ github-sudo-CVE-2026-35535/include/sudo_eventlog.h
+
+diff --git a/include/sudo_eventlog.h b/include/sudo_eventlog.h
+index eb9f4f4..485d259 100644
+--- a/include/sudo_eventlog.h
++++ b/include/sudo_eventlog.h
 @@ -80,6 +80,7 @@ struct eventlog_config {
      int syslog_rejectpri;
      int syslog_alertpri;
@@ -24,7 +25,7 @@ Index: github-sudo-CVE-2026-35535/include/sudo_eventlog.h
      bool omit_hostname;
      const char *logpath;
      const char *time_fmt;
-@@ -151,7 +152,7 @@ void eventlog_set_syslog_rejectpri(int p
+@@ -151,7 +152,7 @@ void eventlog_set_syslog_rejectpri(int pri);
  void eventlog_set_syslog_alertpri(int pri);
  void eventlog_set_syslog_maxlen(size_t len);
  void eventlog_set_file_maxlen(size_t len);
@@ -33,10 +34,10 @@ Index: github-sudo-CVE-2026-35535/include/sudo_eventlog.h
  void eventlog_set_omit_hostname(bool omit_hostname);
  void eventlog_set_logpath(const char *path);
  void eventlog_set_time_fmt(const char *fmt);
-Index: github-sudo-CVE-2026-35535/lib/eventlog/eventlog.c
-===================================================================
---- github-sudo-CVE-2026-35535.orig/lib/eventlog/eventlog.c
-+++ github-sudo-CVE-2026-35535/lib/eventlog/eventlog.c
+diff --git a/lib/eventlog/eventlog.c b/lib/eventlog/eventlog.c
+index 5a32824..d56c4e4 100644
+--- a/lib/eventlog/eventlog.c
++++ b/lib/eventlog/eventlog.c
 @@ -304,15 +304,13 @@ exec_mailer(int pipein)
  	syslog(LOG_ERR, _("unable to dup stdin: %m")); // -V618
  	sudo_debug_printf(SUDO_DEBUG_ERROR,
@@ -89,11 +90,11 @@ Index: github-sudo-CVE-2026-35535/lib/eventlog/eventlog.c
  }
  
  /* Send a message to the mailto user */
-Index: github-sudo-CVE-2026-35535/lib/eventlog/eventlog_conf.c
-===================================================================
---- github-sudo-CVE-2026-35535.orig/lib/eventlog/eventlog_conf.c
-+++ github-sudo-CVE-2026-35535/lib/eventlog/eventlog_conf.c
-@@ -70,6 +70,7 @@ static struct eventlog_config evl_conf =
+diff --git a/lib/eventlog/eventlog_conf.c b/lib/eventlog/eventlog_conf.c
+index 0663a38..ec3b569 100644
+--- a/lib/eventlog/eventlog_conf.c
++++ b/lib/eventlog/eventlog_conf.c
+@@ -70,6 +70,7 @@ static struct eventlog_config evl_conf = {
      MAXSYSLOGLEN,		/* syslog_maxlen */
      0,				/* file_maxlen */
      ROOT_UID,			/* mailuid */
@@ -113,11 +114,11 @@ Index: github-sudo-CVE-2026-35535/lib/eventlog/eventlog_conf.c
  }
  
  void
-Index: github-sudo-CVE-2026-35535/plugins/sudoers/logging.c
-===================================================================
---- github-sudo-CVE-2026-35535.orig/plugins/sudoers/logging.c
-+++ github-sudo-CVE-2026-35535/plugins/sudoers/logging.c
-@@ -1155,7 +1155,7 @@ init_eventlog_config(void)
+diff --git a/plugins/sudoers/logging.c b/plugins/sudoers/logging.c
+index bd4de92..9535289 100644
+--- a/plugins/sudoers/logging.c
++++ b/plugins/sudoers/logging.c
+@@ -1157,7 +1157,7 @@ init_eventlog_config(void)
      eventlog_set_syslog_alertpri(def_syslog_badpri);
      eventlog_set_syslog_maxlen(def_syslog_maxlen);
      eventlog_set_file_maxlen(def_loglinelen);
@@ -126,11 +127,11 @@ Index: github-sudo-CVE-2026-35535/plugins/sudoers/logging.c
      eventlog_set_omit_hostname(!def_log_host);
      eventlog_set_logpath(def_logfile);
      eventlog_set_time_fmt(def_log_year ? "%h %e %T %Y" : "%h %e %T");
-Index: github-sudo-CVE-2026-35535/plugins/sudoers/policy.c
-===================================================================
---- github-sudo-CVE-2026-35535.orig/plugins/sudoers/policy.c
-+++ github-sudo-CVE-2026-35535/plugins/sudoers/policy.c
-@@ -639,7 +639,7 @@ sudoers_policy_deserialize_info(struct s
+diff --git a/plugins/sudoers/policy.c b/plugins/sudoers/policy.c
+index f3adfb0..27f6e58 100644
+--- a/plugins/sudoers/policy.c
++++ b/plugins/sudoers/policy.c
+@@ -639,7 +639,7 @@ sudoers_policy_deserialize_info(struct sudoers_context *ctx, void *v,
      }
  
  #ifdef NO_ROOT_MAILER
