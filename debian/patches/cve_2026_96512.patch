@@ -1,0 +1,92 @@
+Description: Fix CVE-2026-96512: ignore the user-specified TZ environment
+ variable when evaluating sudoers NOTBEFORE/NOTAFTER timestamps.
+ A sudoers date without a trailing "Z" is parsed as local time via
+ mktime(), which honors the caller's TZ.  A local user named in a
+ time-restricted rule can shift the authorization window by up to
+ ~25 hours (TZ=UTC+14) and revive an expired rule.  This backports
+ upstream commits db669167 and 1820a34: unsetenv("TZ") before
+ tzset(), and copy environ[] away from envp[] so that plugins still
+ receive the original environment (TZ stays available for the
+ command itself).
+Author: Todd C. Miller <Todd.Miller@sudo.ws>
+Origin: upstream, https://github.com/sudo-project/sudo/commit/db669167ca599f2a94cd8a4c5fae9e473c81a2fd
+Origin: upstream, https://github.com/sudo-project/sudo/commit/1820a349687522f51023d1ae5925125f59679a8c
+Bug: https://security-tracker.debian.org/tracker/CVE-2026-96512
+Bug: https://www.openwall.com/lists/oss-security/2026/09/24/4
+Forwarded: not-needed
+Upstream-Status: Backport
+Last-Update: 2026-09-28
+---
+  src/sudo.c |   39 ++++++++++++++++++++++++++++++++++++++-
+  1 file changed, 38 insertions(+), 1 deletion(-)
+Index: sudo/src/sudo.c
+===================================================================
+--- sudo.orig/src/sudo.c
++++ sudo/src/sudo.c
+@@ -99,6 +99,7 @@ static void sudo_check_suid(const char *
+ static char **get_user_info(struct user_details *);
+ static void command_info_to_details(char * const info[],
+     struct command_details *details);
++static void set_time_zone(void);
+ static void gc_init(void);
+ 
+ /* Policy plugin convenience functions. */
+@@ -163,7 +164,8 @@ main(int argc, char *argv[], char *envp[
+     bindtextdomain(PACKAGE_NAME, LOCALEDIR);
+     textdomain(PACKAGE_NAME);
+ 
+-    (void) tzset();
++    /* Use system time zone, not user-specified. */
++    set_time_zone();
+ 
+     /* Must be done before we do any password lookups */
+ #if defined(HAVE_GETPRPWNAM) && defined(HAVE_SET_AUTH_PARAMETERS)
+@@ -341,13 +343,48 @@ access_denied:
+     return EXIT_FAILURE;
+ }
+ 
++/*
++ * Set the time zone using tzset(3), removing the user's TZ
++ * environment variable.  The original value of TZ may still
++ * be present in the command's environment, depending on sudoers.
++ */
++static void
++set_time_zone(void)
++{
++    /* Use system time zone, not user-specified. */
++    unsetenv("TZ");
++    (void) tzset();
++}
++
+ int
+ os_init_common(int argc, char *argv[], char *envp[])
+ {
++    extern char **environ;
++    int envc;
+ #ifdef STATIC_SUDOERS_PLUGIN
+     preload_static_symbols();
+ #endif
+     gc_init();
++
++    /*
++     * Make a copy of environ[] that is distinct from envp[].
++     * This allows us to remove variables from sudo's environment
++     * while still providing the original envp to the plugins.
++     */
++    for (envc = 0; envp[envc] != NULL; envc++)
++	continue;
++    if (envc != 0) {
++	char **new_env = reallocarray(NULL, sizeof(char *), envc + 1);
++	if (new_env == NULL || !gc_add(GC_PTR, new_env)) {
++	    sudo_fatalx_nodebug(U_("%s: %s"), __func__,
++		U_("unable to allocate memory"));
++	}
++	for (envc = 0; envp[envc] != NULL; envc++)
++	    new_env[envc] = envp[envc];
++	new_env[envc] = NULL;
++	environ = new_env;
++    }
++
+     return 0;
+ }
+ 
