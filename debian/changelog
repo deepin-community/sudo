@@ -1,3 +1,11 @@
+sudo (1.9.16p2-3deepin3) unstable; urgency=medium
+
+  * Fix CVE-2026-96512: ignore the user-specified TZ environment variable
+    when evaluating sudoers NOTBEFORE/NOTAFTER timestamps. Backport upstream
+    commits db669167 and 1820a34 (time-window bypass via mktime, ~25h shift).
+
+ -- xinpeng.wang <wangxinpeng@uniontech.com>  Mon, 28 Sep 2026 15:01:31 +0800
+
 sudo (1.9.16p2-3deepin2) unstable; urgency=medium
 
   * Fix CVE-2026-35535: exec_mailer: Set group as well as uid when
